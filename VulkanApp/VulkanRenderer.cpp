@@ -1041,7 +1041,7 @@ void VulkanRenderer::recordCommands()
 	renderPassBeginInfo.renderArea.extent = swapchainExtent;
 
 	vk::ClearValue clearValues{};
-	std::array<float, 4> colors{ 0.6f, 0.65f, 0.4f, 1.0f };
+	std::array<float, 4> colors{ 0.2f, 0.2f, 0.2f, 1.0f };
 	clearValues.color = vk::ClearColorValue{ colors };
 
 	renderPassBeginInfo.pClearValues = &clearValues;
