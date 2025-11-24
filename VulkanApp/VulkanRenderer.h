@@ -52,6 +52,9 @@ private:
 	vk::Extent2D swapchainExtent;
 	vector<SwapchainImage> swapchainImages;
 
+	vk::PipelineLayout pipelineLayout;
+	vk::RenderPass renderPass;
+
 	VkDebugUtilsMessengerEXT debugMessenger;
 
 private:
@@ -85,5 +88,9 @@ private:
 
 	vk::ImageView createImageView(vk::Image image, vk::Format format, vk::ImageAspectFlagBits aspectFlags);
 
+	void createGraphicsPipeline();
+	vk::ShaderModule createShaderModule(const vector<char>& code);
+
+	void createRenderPass();
 };
 
