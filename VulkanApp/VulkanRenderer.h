@@ -51,9 +51,21 @@ private:
 	vk::Format swapchainImageFormat;
 	vk::Extent2D swapchainExtent;
 	vector<SwapchainImage> swapchainImages;
+	vector<vk::Framebuffer> swapchainFramebuffers;
 
 	vk::PipelineLayout pipelineLayout;
+	vk::Pipeline graphicsPipeline;
 	vk::RenderPass renderPass;
+
+	vk::CommandPool graphicsCommandPool;
+	vector<vk::CommandBuffer> commandBuffers;
+
+	vector<vk::Semaphore> imageAvailable;
+	vector<vk::Semaphore> renderFinished;
+
+	const int MAX_FRAME_DRAWS = 2;	// Should be less than the number of swapchain images, here 3 (could cause bugs)
+	int currentFrame = 0;
+	vector<vk::Fence> drawFences;
 
 	VkDebugUtilsMessengerEXT debugMessenger;
 
@@ -92,5 +104,12 @@ private:
 	vk::ShaderModule createShaderModule(const vector<char>& code);
 
 	void createRenderPass();
+
+	void createFramebuffers();
+	void createGraphicsCommandPool();
+	void createGraphicsCommandBuffers();
+	void recordCommands();
+
+	void createSynchronisation();
 };
 

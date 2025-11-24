@@ -1,6 +1,6 @@
 #include "VulkanRenderer.h"
 
-const vector<const char*> VulkanRenderer::validationLayers {
+const vector<const char*> VulkanRenderer::validationLayers{
 	"VK_LAYER_KHRONOS_validation"
 };
 
@@ -15,7 +15,7 @@ VulkanRenderer::~VulkanRenderer()
 int VulkanRenderer::init(GLFWwindow* windowP)
 {
 	window = windowP;
-	try 
+	try
 	{
 		createInstance();
 		setupDebugMessenger();
@@ -25,8 +25,13 @@ int VulkanRenderer::init(GLFWwindow* windowP)
 		createSwapchain();
 		createRenderPass();
 		createGraphicsPipeline();
+		createFramebuffers();
+		createGraphicsCommandPool();
+		createGraphicsCommandBuffers();
+		recordCommands();
+		createSynchronisation();
 	}
-	catch (const std::runtime_error& e)
+	catch( const std::runtime_error& e )
 	{
 		printf("ERROR: %s\n", e.what());
 		return EXIT_FAILURE;
@@ -37,12 +42,78 @@ int VulkanRenderer::init(GLFWwindow* windowP)
 
 void VulkanRenderer::draw()
 {
+	// 0. Freeze code until the drawFences[currentFrame] is open
+	mainDevice.logicalDevice.waitForFences(drawFences[currentFrame], VK_TRUE, std::numeric_limits<uint32_t>::max());
 
+	// When passing the fence, we close it behind us
+	mainDevice.logicalDevice.resetFences(drawFences[currentFrame]);
+
+	// 1. Get next available image to draw and set a semaphore to signal
+	// when we're finished with the image.
+	uint32_t imageToBeDrawnIndex = ( mainDevice.logicalDevice.acquireNextImageKHR(swapchain, std::numeric_limits<uint32_t>::max(), imageAvailable[currentFrame], VK_NULL_HANDLE) ).value;
+
+	// 2. Submit command buffer to queue for execution, make sure it waits 
+	// for the image to be signaled as available before drawing, and
+	// signals when it has finished rendering.
+	vk::SubmitInfo submitInfo{};
+	submitInfo.waitSemaphoreCount = 1;
+	submitInfo.pWaitSemaphores = &imageAvailable[currentFrame];
+
+	// Keep doing command buffer until imageAvailable is true
+	vk::PipelineStageFlags waitStages[]{ vk::PipelineStageFlagBits::eColorAttachmentOutput };
+
+	// Stages to check semaphores at
+	submitInfo.pWaitDstStageMask = waitStages;
+	submitInfo.commandBufferCount = 1;
+
+	// Command buffer to submit
+	submitInfo.pCommandBuffers = &commandBuffers[imageToBeDrawnIndex];
+
+	// Semaphores to signal when command buffer finishes
+	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.pSignalSemaphores = &renderFinished[currentFrame];
+
+	// When finished drawing, open the fence for the next submission
+	graphicsQueue.submit(submitInfo, drawFences[currentFrame]);
+
+	// 3. Present image to screen when it has signalled finished rendering
+	vk::PresentInfoKHR presentInfo{};
+	presentInfo.waitSemaphoreCount = 1;
+	presentInfo.pWaitSemaphores = &renderFinished[currentFrame];
+	presentInfo.swapchainCount = 1;
+
+	// Swapchains to present to
+	presentInfo.pSwapchains = &swapchain;
+
+	// Index of images in swapchains to present
+	presentInfo.pImageIndices = &imageToBeDrawnIndex;
+
+	presentationQueue.presentKHR(presentInfo);
+
+	currentFrame = ( currentFrame + 1 ) % MAX_FRAME_DRAWS;
 }
 
 void VulkanRenderer::clean()
 {
+	mainDevice.logicalDevice.waitIdle();
+
+	for( size_t i = 0; i < MAX_FRAME_DRAWS; ++i )
+	{
+		mainDevice.logicalDevice.destroySemaphore(renderFinished[i]);
+		mainDevice.logicalDevice.destroySemaphore(imageAvailable[i]);
+		mainDevice.logicalDevice.destroyFence(drawFences[i]);
+	}
+
+	mainDevice.logicalDevice.destroyCommandPool(graphicsCommandPool);
+
+	for( auto framebuffer : swapchainFramebuffers )
+	{
+		mainDevice.logicalDevice.destroyFramebuffer(framebuffer);
+	}
+
+	mainDevice.logicalDevice.destroyPipeline(graphicsPipeline);
 	mainDevice.logicalDevice.destroyPipelineLayout(pipelineLayout);
+
 	mainDevice.logicalDevice.destroyRenderPass(renderPass);
 
 	for( auto image : swapchainImages )
@@ -67,51 +138,45 @@ void VulkanRenderer::createInstance()
 	// Information about the application
 	// This data is for developer convenience
 	vk::ApplicationInfo appInfo{};
-
-	// Name of the app
-	appInfo.pApplicationName = "Vulkan App";
-	// Version of the application
-	appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-	// Custom engine name
-	appInfo.pEngineName = "No Engine";
-	// Custom engine version
-	appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-	// Vulkan version (here 1.1)
-	appInfo.apiVersion = VK_API_VERSION_1_1;
+	appInfo.pApplicationName = "Vulkan App";					// Name of the app
+	appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);		// Version of the application
+	appInfo.pEngineName = "No Engine";							// Custom engine name
+	appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);			// Custom engine version
+	appInfo.apiVersion = VK_API_VERSION_1_1;					// Vulkan version (here 1.1)
 
 	// Everything we create will be created with a createInfo
 	// Here, info about the vulkan creation
 	vk::InstanceCreateInfo createInfo{};
 
-	// createInfo.pNext // Extended information
-	// createInfo.flags // Flags with bitfield
-	// Application info from above
-	createInfo.pApplicationInfo = &appInfo;
+	// createInfo.pNext											// Extended information
+	// createInfo.flags											// Flags with bitfield
+	createInfo.pApplicationInfo = &appInfo;						// Application info from above
 
 	// Setup extensions instance will use
 	vector<const char*> instanceExtensions = getRequiredExtensions();
 
-	// Check extensions
+	// Check instance extensions
 	if( !checkInstanceExtensionSupport(instanceExtensions) )
 	{
 		throw std::runtime_error("VkInstance does not support required extensions");
 	}
 
-	createInfo.enabledExtensionCount = static_cast<uint32_t>(instanceExtensions.size());
+	createInfo.enabledExtensionCount = static_cast<uint32_t>( instanceExtensions.size() );
 	createInfo.ppEnabledExtensionNames = instanceExtensions.data();
 
 	// Validation layers
-	VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo;
+	vk::DebugUtilsMessengerCreateInfoEXT debugCreateInfo;
+
 	if( enableValidationLayers && !checkValidationLayerSupport() )
 	{
 		throw std::runtime_error("validation layers requested, but not available!");
 	}
+
 	if( enableValidationLayers )
 	{
 		createInfo.enabledLayerCount = static_cast<uint32_t>( validationLayers.size() );
 		createInfo.ppEnabledLayerNames = validationLayers.data();
-
-		populateDebugMessengerCreateInfo(debugCreateInfo); 
+		populateDebugMessengerCreateInfo(debugCreateInfo);
 		createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*) &debugCreateInfo;
 	}
 	else
@@ -141,10 +206,73 @@ bool VulkanRenderer::checkInstanceExtensionSupport(const vector<const char*>& ch
 				break;
 			}
 		}
+
 		if( !hasExtension ) return false;
 	}
 
 	return true;
+}
+
+void VulkanRenderer::setupDebugMessenger()
+{
+	if( !enableValidationLayers ) return;
+
+	VkDebugUtilsMessengerCreateInfoEXT createInfo;
+	populateDebugMessengerCreateInfo(createInfo);
+
+	if( createDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS )
+	{
+		throw std::runtime_error("Failed to set up debug messenger.");
+	}
+}
+
+void VulkanRenderer::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
+{
+	createInfo = {};
+	createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+	createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+	createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+	createInfo.pfnUserCallback = debugCallback;
+}
+
+bool VulkanRenderer::checkValidationLayerSupport()
+{
+	vector<vk::LayerProperties> availableLayers = vk::enumerateInstanceLayerProperties();
+
+	// Check if all of the layers in validation layers exist in the available layers
+	for( const char* layerName : validationLayers )
+	{
+		bool layerFound = false;
+
+		for( const auto& layerProperties : availableLayers )
+		{
+			if( strcmp(layerName, layerProperties.layerName) == 0 )
+			{
+				layerFound = true;
+				break;
+			}
+		}
+
+		if( !layerFound ) return false;
+	}
+
+	return true;
+}
+
+vector<const char*> VulkanRenderer::getRequiredExtensions()
+{
+	uint32_t glfwExtensionCount = 0;
+	const char** glfwExtensions;
+	glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+
+	vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
+
+	if( enableValidationLayers )
+	{
+		extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+	}
+
+	return extensions;
 }
 
 void VulkanRenderer::getPhysicalDevice()
@@ -178,11 +306,11 @@ bool VulkanRenderer::checkDeviceSuitable(vk::PhysicalDevice device)
 	vk::PhysicalDeviceFeatures deviceFeatures = device.getFeatures();
 
 	// For now we do nothing with this info
+
 	QueueFamilyIndices indices = getQueueFamilies(device);
-
 	bool extensionSupported = checkDeviceExtensionSupport(device);
-	bool swapchainValid = false;
 
+	bool swapchainValid = false;
 	if( extensionSupported )
 	{
 		SwapchainDetails swapchainDetails = getSwapchainDetails(device);
@@ -199,7 +327,6 @@ QueueFamilyIndices VulkanRenderer::getQueueFamilies(vk::PhysicalDevice device)
 
 	// Go through each queue family and check it has at least one required type of queue
 	int i = 0;
-
 	for( const auto& queueFamily : queueFamilies )
 	{
 		// Check there is at least graphics queue
@@ -211,7 +338,6 @@ QueueFamilyIndices VulkanRenderer::getQueueFamilies(vk::PhysicalDevice device)
 		// Check if queue family support presentation
 		VkBool32 presentationSupport = false;
 		presentationSupport = device.getSurfaceSupportKHR(static_cast<uint32_t>( indices.graphicsFamily ), surface);
-
 		if( queueFamily.queueCount > 0 && presentationSupport )
 		{
 			indices.presentationFamily = i;
@@ -220,7 +346,6 @@ QueueFamilyIndices VulkanRenderer::getQueueFamilies(vk::PhysicalDevice device)
 		if( indices.isValid() ) break;
 		++i;
 	}
-
 	return indices;
 }
 
@@ -241,9 +366,9 @@ void VulkanRenderer::createLogicalDevice()
 		queueCreateInfo.queueCount = 1;
 
 		float priority = 1.0f;
-
 		// Vulkan needs to know how to handle multiple queues. It uses priorities.
 		// 1 is the highest priority.
+
 		queueCreateInfo.pQueuePriorities = &priority;
 		queueCreateInfos.push_back(queueCreateInfo);
 	}
@@ -263,7 +388,7 @@ void VulkanRenderer::createLogicalDevice()
 	// -- Validation layers are deprecated since Vulkan 1.1
 	
 	// Features
-	vk::PhysicalDeviceFeatures deviceFeatures{};				// For now, no device features (tessellation etc.)
+	vk::PhysicalDeviceFeatures deviceFeatures{}; // For now, no device features (tessellation etc.)
 	deviceCreateInfo.pEnabledFeatures = &deviceFeatures;
 
 	// Create the logical device for the given physical device
@@ -272,67 +397,6 @@ void VulkanRenderer::createLogicalDevice()
 	// Ensure access to queues
 	graphicsQueue = mainDevice.logicalDevice.getQueue(indices.graphicsFamily, 0);
 	presentationQueue = mainDevice.logicalDevice.getQueue(indices.presentationFamily, 0);
-}
-
-bool VulkanRenderer::checkValidationLayerSupport()
-{
-	vector<vk::LayerProperties> availableLayers = vk::enumerateInstanceLayerProperties();
-
-	// Check if all of the layers in validation layers exist in the available layers
-	for( const char* layerName : validationLayers )
-	{
-		bool layerFound = false;
-		for( const auto& layerProperties : availableLayers )
-		{
-			if( strcmp(layerName, layerProperties.layerName) == 0 )
-			{
-				layerFound = true;
-				break;
-			}
-		}
-
-		if( !layerFound ) return false;
-	}
-
-	return true;
-}
-
-vector<const char*> VulkanRenderer::getRequiredExtensions()
-{
-	uint32_t glfwExtensionCount = 0;
-	const char** glfwExtensions;
-	glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
-	vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
-
-	if( enableValidationLayers )
-	{
-		extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-	}
-
-	return extensions;
-}
-
-void VulkanRenderer::setupDebugMessenger()
-{
-	if( !enableValidationLayers ) return;
-
-	VkDebugUtilsMessengerCreateInfoEXT createInfo;
-	populateDebugMessengerCreateInfo(createInfo);
-
-	if( createDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS )
-	{
-		throw std::runtime_error("Failed to set up debug messenger.");
-	}
-}
-
-void VulkanRenderer::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
-{
-	createInfo = {};
-	createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-	createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-	createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-	createInfo.pfnUserCallback = debugCallback;
 }
 
 VkResult VulkanRenderer::createDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger)
@@ -350,7 +414,7 @@ VkResult VulkanRenderer::createDebugUtilsMessengerEXT(VkInstance instance, const
 
 void VulkanRenderer::destroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator)
 {
-	auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance,"vkDestroyDebugUtilsMessengerEXT");
+	auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
 	if( func != nullptr )
 	{
 		func(instance, debugMessenger, pAllocator);
@@ -393,7 +457,6 @@ bool VulkanRenderer::checkDeviceExtensionSupport(vk::PhysicalDevice device)
 	return true;
 }
 
-
 SwapchainDetails VulkanRenderer::getSwapchainDetails(vk::PhysicalDevice device)
 {
 	SwapchainDetails swapchainDetails;
@@ -416,6 +479,7 @@ void VulkanRenderer::createSwapchain()
 	SwapchainDetails swapchainDetails = getSwapchainDetails(mainDevice.physicalDevice);
 	vk::SurfaceFormatKHR surfaceFormat = chooseBestSurfaceFormat(swapchainDetails.formats);
 	vk::PresentModeKHR presentationMode = chooseBestPresentationMode(swapchainDetails.presentationModes);
+
 	VkExtent2D extent = chooseSwapExtent(swapchainDetails.surfaceCapabilities);
 
 	// Setup the swap chain info
@@ -428,7 +492,6 @@ void VulkanRenderer::createSwapchain()
 
 	// Minimal number of image in our swapchain. We will use one more than the minimum to enable triple-buffering.
 	uint32_t imageCount = swapchainDetails.surfaceCapabilities.minImageCount + 1;
-
 	if( swapchainDetails.surfaceCapabilities.maxImageCount > 0 && swapchainDetails.surfaceCapabilities.maxImageCount < imageCount )
 	{
 		imageCount = swapchainDetails.surfaceCapabilities.maxImageCount;
@@ -584,20 +647,16 @@ void VulkanRenderer::createGraphicsPipeline()
 	// Read shader code and format it through a shader module
 	auto vertexShaderCode = readShaderFile("shaders/vert.spv");
 	auto fragmentShaderCode = readShaderFile("shaders/frag.spv");
-
 	vk::ShaderModule vertexShaderModule = createShaderModule(vertexShaderCode);
 	vk::ShaderModule fragmentShaderModule = createShaderModule(fragmentShaderCode);
+
 
 	// -- SHADER STAGE CREATION INFO --
 	// Vertex stage creation info
 	vk::PipelineShaderStageCreateInfo vertexShaderCreateInfo{};
-
-	// Used to know which shader
-	vertexShaderCreateInfo.stage = vk::ShaderStageFlagBits::eVertex;
+	vertexShaderCreateInfo.stage = vk::ShaderStageFlagBits::eVertex;	// Used to know which shader
 	vertexShaderCreateInfo.module = vertexShaderModule;
-
-	// Pointer to the start function in the shader
-	vertexShaderCreateInfo.pName = "main";
+	vertexShaderCreateInfo.pName = "main";		// Pointer to the start function in the shader
 
 	// Fragment stage creation info
 	vk::PipelineShaderStageCreateInfo fragmentShaderCreateInfo{};
@@ -606,7 +665,8 @@ void VulkanRenderer::createGraphicsPipeline()
 	fragmentShaderCreateInfo.pName = "main";
 
 	// Graphics pipeline requires an array of shader create info
-	vk::PipelineShaderStageCreateInfo shaderStages[]{vertexShaderCreateInfo, fragmentShaderCreateInfo };
+	vk::PipelineShaderStageCreateInfo shaderStages[]{ vertexShaderCreateInfo, fragmentShaderCreateInfo };
+
 
 	// Create pipeline
 
@@ -669,6 +729,7 @@ void VulkanRenderer::createGraphicsPipeline()
 	dynamicStateCreateInfo.pDynamicStates = dynamicStateEnables.data();
 	*/
 
+
 	// -- RASTERIZER --
 	vk::PipelineRasterizationStateCreateInfo rasterizerCreateInfo{};
 
@@ -695,6 +756,7 @@ void VulkanRenderer::createGraphicsPipeline()
 	// Whether to add a depth offset to fragments. Good for stopping "shadow acne" in shadow mapping. 
 	// Is set, need to set 3 other values.
 	rasterizerCreateInfo.depthBiasEnable = VK_FALSE;
+
 
 	// -- MULTISAMPLING --	
 	// Not for textures, only for edges
@@ -731,6 +793,7 @@ void VulkanRenderer::createGraphicsPipeline()
 	colorBlendingCreateInfo.attachmentCount = 1;
 	colorBlendingCreateInfo.pAttachments = &colorBlendAttachment;
 
+
 	// -- PIPELINE LAYOUT --
 	// TODO: apply future descriptorset layout
 	vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo{};
@@ -745,10 +808,47 @@ void VulkanRenderer::createGraphicsPipeline()
 	// -- DEPTH STENCIL TESTING --
 	// TODO: Set up depth stencil testing
 
+
 	// -- PASSES --
 	// Passes are composed of a sequence of subpasses that can pass data from one to another
 
-	// Create pipeline
+	// -- GRAPHICS PIPELINE CREATION --
+	vk::GraphicsPipelineCreateInfo graphicsPipelineCreateInfo{};
+	graphicsPipelineCreateInfo.stageCount = 2;
+	graphicsPipelineCreateInfo.pStages = shaderStages;
+	graphicsPipelineCreateInfo.pVertexInputState = &vertexInputCreateInfo;
+	graphicsPipelineCreateInfo.pInputAssemblyState = &inputAssemblyCreateInfo;
+	graphicsPipelineCreateInfo.pViewportState = &viewportStateCreateInfo;
+	graphicsPipelineCreateInfo.pDynamicState = nullptr;
+	graphicsPipelineCreateInfo.pRasterizationState = &rasterizerCreateInfo;
+	graphicsPipelineCreateInfo.pMultisampleState = &multisamplingCreateInfo;
+	graphicsPipelineCreateInfo.pColorBlendState = &colorBlendingCreateInfo;
+	graphicsPipelineCreateInfo.pDepthStencilState = nullptr;
+	graphicsPipelineCreateInfo.layout = pipelineLayout;
+
+	// Renderpass description the pipeline is compatible with. This pipeline will be used by the render pass.
+	graphicsPipelineCreateInfo.renderPass = renderPass;
+
+	// Subpass of render pass to use with pipeline. Usually one pipeline by subpass.
+	graphicsPipelineCreateInfo.subpass = 0;
+
+	// When you want to derivate a pipeline from an other pipeline OR
+	graphicsPipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
+
+	// Index of pipeline being created to derive from (in case of creating multiple at once)
+	graphicsPipelineCreateInfo.basePipelineIndex = -1;
+
+	// The handle is a cache when you want to save your pipeline to create an other later
+	auto result = mainDevice.logicalDevice.createGraphicsPipeline(VK_NULL_HANDLE, graphicsPipelineCreateInfo);
+
+	// We could have used createGraphicsPipelines to create multiple pipelines at once.
+	if( result.result != vk::Result::eSuccess )
+	{
+		throw std::runtime_error("Cound not create a graphics pipeline");
+	}
+
+	graphicsPipeline = result.value;
+
 	// Destroy shader modules
 	mainDevice.logicalDevice.destroyShaderModule(fragmentShaderModule);
 	mainDevice.logicalDevice.destroyShaderModule(vertexShaderModule);
@@ -863,3 +963,137 @@ void VulkanRenderer::createRenderPass()
 	renderPass = mainDevice.logicalDevice.createRenderPass(renderPassCreateInfo);
 }
 
+void VulkanRenderer::createFramebuffers()
+{
+	// Create one framebuffer for each swapchain image
+	swapchainFramebuffers.resize(swapchainImages.size());
+	for( size_t i = 0; i < swapchainFramebuffers.size(); ++i )
+	{
+		// Setup attachments
+		array<vk::ImageView, 1> attachments{ swapchainImages[i].imageView };
+
+		// Create info
+		vk::FramebufferCreateInfo framebufferCreateInfo{};
+
+		// Render pass layout the framebuffer will be used with
+		framebufferCreateInfo.renderPass = renderPass;
+		framebufferCreateInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+
+		// List of attachments (1:1 with render pass, thanks to variable i)
+		framebufferCreateInfo.pAttachments = attachments.data();
+		framebufferCreateInfo.width = swapchainExtent.width;
+		framebufferCreateInfo.height = swapchainExtent.height;
+
+		// Framebuffer layers
+		framebufferCreateInfo.layers = 1;
+
+		swapchainFramebuffers[i] = mainDevice.logicalDevice.createFramebuffer(framebufferCreateInfo);
+	}
+}
+
+void VulkanRenderer::createGraphicsCommandPool()
+{
+	QueueFamilyIndices queueFamilyIndices = getQueueFamilies(mainDevice.physicalDevice);
+
+	vk::CommandPoolCreateInfo poolInfo{};
+
+	// Queue family type that buffers from this command pool will use
+	poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily;
+
+	graphicsCommandPool = mainDevice.logicalDevice.createCommandPool(poolInfo);
+}
+
+void VulkanRenderer::createGraphicsCommandBuffers()
+{
+	// Create one command buffer for each framebuffer
+	commandBuffers.resize(swapchainFramebuffers.size());
+
+	vk::CommandBufferAllocateInfo commandBufferAllocInfo{};		// We are using a pool
+	commandBufferAllocInfo.commandPool = graphicsCommandPool;
+	commandBufferAllocInfo.commandBufferCount = static_cast<uint32_t>( commandBuffers.size() );
+
+	// Primary means the command buffer will submit directly to a queue. 
+	// Secondary cannot be called by a queue, but by an other primary command 
+	// buffer, via vkCmdExecuteCommands.
+	commandBufferAllocInfo.level = vk::CommandBufferLevel::ePrimary;
+
+	commandBuffers = mainDevice.logicalDevice.allocateCommandBuffers(commandBufferAllocInfo);
+}
+
+void VulkanRenderer::recordCommands()
+{
+	// How to begin each command buffer
+	vk::CommandBufferBeginInfo commandBufferBeginInfo{};
+
+	// Buffer can be resubmited when it has already been submited
+	//commandBufferBeginInfo.flags = vk::CommandBufferUsageFlagBits::eSimultaneousUse;		
+
+	// Information about how to being a render pass (only for graphical apps)
+	vk::RenderPassBeginInfo renderPassBeginInfo{};
+
+	// Render pass to begin
+	renderPassBeginInfo.renderPass = renderPass;
+
+	// Start point of render pass in pixel
+	renderPassBeginInfo.renderArea.offset = vk::Offset2D{ 0, 0 };
+
+	// Size of region to run render pass on
+	renderPassBeginInfo.renderArea.extent = swapchainExtent;
+
+	vk::ClearValue clearValues{};
+	std::array<float, 4> colors{ 0.6f, 0.65f, 0.4f, 1.0f };
+	clearValues.color = vk::ClearColorValue{ colors };
+
+	renderPassBeginInfo.pClearValues = &clearValues;
+	renderPassBeginInfo.clearValueCount = 1;
+
+	for( size_t i = 0; i < commandBuffers.size(); ++i )
+	{
+		// Because 1-to-1 relationship
+		renderPassBeginInfo.framebuffer = swapchainFramebuffers[i];
+
+		// Start recording commands to command buffer
+		commandBuffers[i].begin(commandBufferBeginInfo);
+
+		// Begin render pass
+		// All draw commands inline (no secondary command buffers)
+		commandBuffers[i].beginRenderPass(renderPassBeginInfo, vk::SubpassContents::eInline);
+
+		// Bind pipeline to be used in render pass, you could switch pipelines for different subpasses
+		commandBuffers[i].bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline);
+
+		// Execute pipeline
+		// Draw 3 vertices, 1 instance, with no offset. Instance allow you 
+		// to draw several instances with one draw call.
+		commandBuffers[i].draw(3, 1, 0, 0);
+
+		// End render pass
+		commandBuffers[i].endRenderPass();
+
+		// Stop recordind to command buffer
+		commandBuffers[i].end();
+	}
+}
+
+void VulkanRenderer::createSynchronisation()
+{
+	imageAvailable.resize(MAX_FRAME_DRAWS);
+	renderFinished.resize(MAX_FRAME_DRAWS);
+	drawFences.resize(MAX_FRAME_DRAWS);
+
+	// Semaphore creation info
+	vk::SemaphoreCreateInfo semaphoreCreateInfo{}; // That's all !
+
+	// Fence creation info
+	vk::FenceCreateInfo fenceCreateInfo{};
+
+	// Fence starts open
+	fenceCreateInfo.flags = vk::FenceCreateFlagBits::eSignaled;
+
+	for( size_t i = 0; i < MAX_FRAME_DRAWS; ++i )
+	{
+		imageAvailable[i] = mainDevice.logicalDevice.createSemaphore(semaphoreCreateInfo);
+		renderFinished[i] = mainDevice.logicalDevice.createSemaphore(semaphoreCreateInfo);
+		drawFences[i] = mainDevice.logicalDevice.createFence(fenceCreateInfo);
+	}
+}
