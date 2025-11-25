@@ -1,12 +1,15 @@
 #pragma once
+
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
 #include <stdexcept>
 #include <vector>
 using std::vector;
+
 #include <set>
 using std::set;
+
 #include <array>
 using std::array;
 
@@ -68,9 +71,9 @@ private:
 	int currentFrame = 0;
 	vector<vk::Fence> drawFences;
 
-	VkDebugUtilsMessengerEXT debugMessenger;
+	vector<VulkanMesh> meshes;
 
-	VulkanMesh firstMesh;
+	VkDebugUtilsMessengerEXT debugMessenger;
 
 private:
 	void createInstance();
