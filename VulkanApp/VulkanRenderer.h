@@ -53,6 +53,7 @@ private:
 	GLFWwindow* window;
 	vk::Instance instance;
 	vk::Queue graphicsQueue;
+
 	VkDebugUtilsMessengerEXT debugMessenger;
 
 	vk::SurfaceKHR surface;

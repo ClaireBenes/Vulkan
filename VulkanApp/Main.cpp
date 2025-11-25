@@ -31,6 +31,7 @@ void clean()
 int main()
 {
 	initWindow();
+
 	if( vulkanRenderer.init(window) == EXIT_FAILURE ) return EXIT_FAILURE;
 
 	float angle = 0.0f;
