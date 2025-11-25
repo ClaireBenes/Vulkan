@@ -3,6 +3,9 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
 #include <stdexcept>
 #include <vector>
 using std::vector;
@@ -15,6 +18,13 @@ using std::array;
 
 #include "VulkanUtilities.h"
 #include "VulkanMesh.h"
+
+struct MVP
+{
+	glm::mat4 projection;
+	glm::mat4 view;
+	glm::mat4 model;
+};
 
 class VulkanRenderer
 {
@@ -41,6 +51,7 @@ public:
 	void draw();
 	void clean();
 
+	void updateModel(glm::mat4 modelP);
 
 private:
 	GLFWwindow* window;
@@ -72,6 +83,14 @@ private:
 	vector<vk::Fence> drawFences;
 
 	vector<VulkanMesh> meshes;
+
+	MVP mvp;
+	vk::DescriptorSetLayout descriptorSetLayout;
+	vk::DescriptorPool descriptorPool;
+	vector<vk::DescriptorSet> descriptorSets;
+
+	vector<vk::Buffer> uniformBuffer;
+	vector<vk::DeviceMemory> uniformBufferMemory;
 
 	VkDebugUtilsMessengerEXT debugMessenger;
 
@@ -110,6 +129,13 @@ private:
 	vk::ShaderModule createShaderModule(const vector<char>& code);
 
 	void createRenderPass();
+
+	void createDescriptorSetLayout();
+	void createDescriptorPool();
+	void createDescriptorSets();
+
+	void createUniformBuffers();
+	void updateUniformBuffer(uint32_t imageIndex);
 
 	void createFramebuffers();
 	void createGraphicsCommandPool();
