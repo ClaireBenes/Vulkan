@@ -6,29 +6,38 @@
 #include <vector>
 
 using std::vector;
+
 #include "VulkanUtilities.h"
 
 class VulkanMesh
 {
 public:
-	VulkanMesh(vk::PhysicalDevice physicalDeviceP, vk::Device deviceP, vector<Vertex>* vertices);
+	VulkanMesh(vk::PhysicalDevice physicalDeviceP, vk::Device deviceP,
+		vk::Queue transferQueue, vk::CommandPool transferCommandPool,
+		vector<Vertex>* vertices, vector<uint32_t>* indices);
 	VulkanMesh() = default;
 	~VulkanMesh() = default;
 
 	size_t getVextexCount();
 	vk::Buffer getVertexBuffer();
+	size_t getIndexCount();
+	vk::Buffer getIndexBuffer();
+
 	void destroyBuffers();
 
 private:
-	size_t vertexCount;
+	size_t vertexCount{ 0 };
+	size_t indexCount{ 0 };
 
 	vk::Buffer vertexBuffer;
 	vk::PhysicalDevice physicalDevice;
 	vk::Device device;
 	vk::DeviceMemory vertexBufferMemory;
+	vk::Buffer indexBuffer;
+	vk::DeviceMemory indexBufferMemory;
 
 private:
-	void createVertexBuffer(vector<Vertex>* vertices);
-	uint32_t findMemoryTypeIndex(vk::PhysicalDevice physicalDevice, uint32_t allowedTypes, vk::MemoryPropertyFlags properties);
+	void createVertexBuffer(vk::Queue transferQueue, vk::CommandPool transferCommandPool, vector<Vertex>* vertices);
+	void createIndexBuffer(vk::Queue transferQueue, vk::CommandPool transferCommandPool, vector<uint32_t>* indices);
 };
 

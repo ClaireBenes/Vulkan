@@ -29,16 +29,22 @@ int VulkanRenderer::init(GLFWwindow* windowP)
 		createGraphicsCommandPool();
 
 		// Objects
+		// -- Vertex data
 		vector<Vertex> meshVertices{
-			{ { 0.4f, -0.4f, 0.0f }, { 1.0f, 0.0f, 0.0f } },
-			{ { 0.4f, 0.4f, 0.0f }, { 0.0f, 1.0f, 0.0f } },
-			{ { -0.4f, 0.4f, 0.0f }, { 0.0f, 0.0f, 1.0f } },
-			{ { -0.4f, 0.4f, 0.0f }, { 0.0f, 0.0f, 1.0f } },
-			{ { -0.4f, -0.4f, 0.0f }, { 1.0f, 1.0f, 0.0f } },
-			{ { 0.4f, -0.4f, 0.0f }, { 1.0f, 0.0f, 0.0f } }
+			{ { 0.4f, -0.4f, 0.0f }, { 1.0f, 0.0f, 0.0f } }, // 0
+			{ { 0.4f, 0.4f, 0.0f }, { 0.0f, 1.0f, 0.0f } }, // 1
+			{ { -0.4f, 0.4f, 0.0f }, { 0.0f, 0.0f, 1.0f } }, // 2
+			{ { -0.4f, -0.4f, 0.0f }, { 1.0f, 1.0f, 0.0f } }, // 3
 		};
 
-		firstMesh = VulkanMesh(mainDevice.physicalDevice, mainDevice.logicalDevice, &meshVertices);
+		// -- Index data
+		vector<uint32_t> meshIndices{
+			0, 1, 2,
+			2, 3, 0
+		};
+
+		firstMesh = VulkanMesh(mainDevice.physicalDevice, mainDevice.logicalDevice,
+			graphicsQueue, graphicsCommandPool, &meshVertices, &meshIndices);
 
 		createGraphicsCommandBuffers();
 		recordCommands();
@@ -1114,8 +1120,12 @@ void VulkanRenderer::recordCommands()
 		vk::Buffer vertexBuffers[] = { firstMesh.getVertexBuffer() };
 		vk::DeviceSize offsets[] = { 0 };
 		commandBuffers[i].bindVertexBuffers(0, vertexBuffers, offsets);
+
+		// Bind index buffer
+		commandBuffers[i].bindIndexBuffer(firstMesh.getIndexBuffer(), 0, vk::IndexType::eUint32);
+
 		// Execute pipeline
-		commandBuffers[i].draw(static_cast<uint32_t>( firstMesh.getVextexCount() ), 1, 0, 0);
+		commandBuffers[i].drawIndexed(static_cast<uint32_t>( firstMesh.getIndexCount() ), 1, 0, 0, 0);
 
 		// End render pass
 		commandBuffers[i].endRenderPass();
