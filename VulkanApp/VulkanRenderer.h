@@ -95,6 +95,11 @@ private:
 
 	vk::PushConstantRange pushConstantRange;
 
+	// Depth
+	vk::Image depthBufferImage;
+	vk::DeviceMemory depthBufferImageMemory;
+	vk::ImageView depthBufferImageView;
+
 private:
 
 	// Instance
@@ -151,6 +156,11 @@ private:
 
 	// Push constants
 	void createPushConstantRange();
+
+	//Depth
+	void createDepthBufferImage();
+	vk::Image createImage(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags useFlags, vk::MemoryPropertyFlags propFlags, vk::DeviceMemory* imageMemory);
+	vk::Format chooseSupportedFormat(const vector<vk::Format>& formats, vk::ImageTiling tiling, vk::FormatFeatureFlags featureFlags);
 
 	// Draw
 	void createSynchronisation();
