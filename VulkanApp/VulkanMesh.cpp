@@ -5,6 +5,8 @@ VulkanMesh::VulkanMesh(vk::PhysicalDevice physicalDeviceP, vk::Device deviceP, v
 {
 	createVertexBuffer(transferQueue, transferCommandPool, vertices);
 	createIndexBuffer(transferQueue, transferCommandPool, indices);
+
+	model.model = glm::mat4(1.0f);
 }
 
 size_t VulkanMesh::getVextexCount()
@@ -77,7 +79,6 @@ void VulkanMesh::createIndexBuffer(vk::Queue transferQueue, vk::CommandPool tran
 
 	vk::Buffer stagingBuffer;
 	vk::DeviceMemory stagingBufferMemory;
-
 	createBuffer(physicalDevice, device, bufferSize, vk::BufferUsageFlagBits::eTransferSrc,
 		vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
 		&stagingBuffer, &stagingBufferMemory);
@@ -99,5 +100,3 @@ void VulkanMesh::createIndexBuffer(vk::Queue transferQueue, vk::CommandPool tran
 	device.destroyBuffer(stagingBuffer);
 	device.freeMemory(stagingBufferMemory);
 }
-
-

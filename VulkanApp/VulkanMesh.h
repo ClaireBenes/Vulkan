@@ -9,12 +9,15 @@ using std::vector;
 
 #include "VulkanUtilities.h"
 
+struct Model
+{
+	glm::mat4 model;
+};
+
 class VulkanMesh
 {
 public:
-	VulkanMesh(vk::PhysicalDevice physicalDeviceP, vk::Device deviceP,
-		vk::Queue transferQueue, vk::CommandPool transferCommandPool,
-		vector<Vertex>* vertices, vector<uint32_t>* indices);
+	VulkanMesh(vk::PhysicalDevice physicalDeviceP, vk::Device deviceP, vk::Queue transferQueue, vk::CommandPool transferCommandPool, vector<Vertex>* vertices, vector<uint32_t>* indices);
 	VulkanMesh() = default;
 	~VulkanMesh() = default;
 
@@ -22,6 +25,9 @@ public:
 	vk::Buffer getVertexBuffer();
 	size_t getIndexCount();
 	vk::Buffer getIndexBuffer();
+
+	Model getModel() const{ return model; }
+	void setModel(const glm::mat4& modelP){ model.model = modelP; }
 
 	void destroyBuffers();
 
@@ -35,6 +41,8 @@ private:
 	vk::DeviceMemory vertexBufferMemory;
 	vk::Buffer indexBuffer;
 	vk::DeviceMemory indexBufferMemory;
+
+	Model model;
 
 private:
 	void createVertexBuffer(vk::Queue transferQueue, vk::CommandPool transferCommandPool, vector<Vertex>* vertices);

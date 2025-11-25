@@ -21,7 +21,7 @@ const vector<const char*> deviceExtensions
 };
 
 // Indices (locations) of Queue Families, if they exist
-struct QueueFamilyIndices 
+struct QueueFamilyIndices
 {
 	int graphicsFamily = -1;		// Location of Graphics Queue Family
 	int presentationFamily = -1;	// Location of Presentation Queue Family
@@ -34,24 +34,24 @@ struct QueueFamilyIndices
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-	VkDebugUtilsMessageTypeFlagsEXT messageType, 
-	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, 
-	void* pUserData) 
+	VkDebugUtilsMessageTypeFlagsEXT messageType,
+	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+	void* pUserData)
 {
 	std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
 	return VK_FALSE;
 }
 
-struct SwapchainDetails 
+struct SwapchainDetails
 {
 	// What the surface is capable of displaying, e.g. image size/extent
-	vk::SurfaceCapabilitiesKHR surfaceCapabilities;	
+	vk::SurfaceCapabilitiesKHR surfaceCapabilities;
 
 	// Vector of the image formats, e.g. RGBA
-	vector<vk::SurfaceFormatKHR> formats;	
+	vector<vk::SurfaceFormatKHR> formats;
 
 	// Vector of presentation modes
-	vector<vk::PresentModeKHR> presentationModes;			
+	vector<vk::PresentModeKHR> presentationModes;
 };
 
 struct SwapchainImage
@@ -64,25 +64,25 @@ static vector<char> readShaderFile(const string& filename)
 {
 	// Open shader file
 	// spv files are binary data, put the pointer at the end of the file to get its size
-	std::ifstream file { filename, std::ios::binary | std::ios::ate };
-	if (!file.is_open())
+	std::ifstream file{ filename, std::ios::binary | std::ios::ate };
+	if( !file.is_open() )
 	{
 		throw std::runtime_error("Failed to open a file");
 	}
 
 	// Buffer preparation
-	size_t fileSize = (size_t)file.tellg();		// Get the size through the position of the pointer
+	size_t fileSize = (size_t) file.tellg();		// Get the size through the position of the pointer
 	vector<char> fileBuffer(fileSize);			// Set file buffer to the file size
 	file.seekg(0);								// Move in file to start of the file
 
 	// Reading and closing
 	file.read(fileBuffer.data(), fileSize);
 	file.close();
-
 	return fileBuffer;
 }
 
-static uint32_t findMemoryTypeIndex(vk::PhysicalDevice physicalDevice, uint32_t allowedTypes, vk::MemoryPropertyFlags properties)
+static uint32_t findMemoryTypeIndex(vk::PhysicalDevice physicalDevice,
+	uint32_t allowedTypes, vk::MemoryPropertyFlags properties)
 {
 	// Get properties of physical device
 	vk::PhysicalDeviceMemoryProperties memoryProperties = physicalDevice.getMemoryProperties();
@@ -104,17 +104,17 @@ static uint32_t findMemoryTypeIndex(vk::PhysicalDevice physicalDevice, uint32_t 
 	}
 }
 
-static void createBuffer(vk::PhysicalDevice physicalDevice, vk::Device device,vk::DeviceSize bufferSize, vk::BufferUsageFlags bufferUsage, vk::MemoryPropertyFlags bufferProperties, vk::Buffer* buffer, vk::DeviceMemory* bufferMemory)
+static void createBuffer(vk::PhysicalDevice physicalDevice, vk::Device device,
+	vk::DeviceSize bufferSize, vk::BufferUsageFlags bufferUsage,
+	vk::MemoryPropertyFlags bufferProperties, vk::Buffer* buffer,
+	vk::DeviceMemory* bufferMemory)
 {
 	// Buffer info
 	vk::BufferCreateInfo bufferInfo{};
 	bufferInfo.size = bufferSize;
+	bufferInfo.usage = bufferUsage;							// Multiple types of buffers
+	bufferInfo.sharingMode = vk::SharingMode::eExclusive;	// Is vertex buffer sharable ? Here: no.
 
-	// Multiple types of buffers
-	bufferInfo.usage = bufferUsage;
-
-	// Is vertex buffer sharable ? Here: no.
-	bufferInfo.sharingMode = vk::SharingMode::eExclusive;
 	*buffer = device.createBuffer(bufferInfo);
 
 	// Get buffer memory requirements
@@ -132,7 +132,6 @@ static void createBuffer(vk::PhysicalDevice physicalDevice, vk::Device device,vk
 
 	// Allocate memory to VkDeviceMemory
 	auto result = device.allocateMemory(&memoryAllocInfo, nullptr, bufferMemory);
-
 	if( result != vk::Result::eSuccess )
 	{
 		throw std::runtime_error("Failed to allocate vertex buffer memory");
@@ -158,7 +157,6 @@ static void copyBuffer(vk::Device device, vk::Queue transferQueue, vk::CommandPo
 
 	// Information to begin command buffer record
 	vk::CommandBufferBeginInfo beginInfo{};
-
 	// Only using command buffer once, then become unvalid
 	beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
 
