@@ -11,6 +11,7 @@ using std::set;
 using std::array;
 
 #include "VulkanUtilities.h"
+#include "VulkanMesh.h"
 
 class VulkanRenderer
 {
@@ -68,6 +69,8 @@ private:
 	vector<vk::Fence> drawFences;
 
 	VkDebugUtilsMessengerEXT debugMessenger;
+
+	VulkanMesh firstMesh;
 
 private:
 	void createInstance();

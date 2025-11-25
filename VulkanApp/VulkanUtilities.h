@@ -2,11 +2,18 @@
 #include <iostream>
 #include <fstream>
 #include <vulkan/vulkan.hpp>
+#include <glm/glm.hpp>
 
 #include <vector>
 using std::vector;
 #include <string>
 using std::string;
+
+struct Vertex
+{
+	glm::vec3 pos;
+	glm::vec3 col;
+};
 
 const vector<const char*> deviceExtensions
 {
