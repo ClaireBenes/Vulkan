@@ -12,10 +12,13 @@
 #include <assimp/postprocess.h>
 
 #include <stdexcept>
+
 #include <vector>
 using std::vector;
+
 #include <set>
 using std::set;
+
 #include <array>
 using std::array;
 
@@ -51,16 +54,18 @@ public:
 	stbi_uc* loadTextureFile(const string& filename, int* width, int* height, vk::DeviceSize* imageSize);
 
 private:
-	GLFWwindow* window;
-	vk::Instance instance;
-	vk::Queue graphicsQueue; // Handles to queue (no value stored)
-	VkDebugUtilsMessengerEXT debugMessenger;
-
 	struct
 	{
 		vk::PhysicalDevice physicalDevice;
 		vk::Device logicalDevice;
 	} mainDevice;
+
+private:
+	GLFWwindow* window;
+	vk::Instance instance;
+	vk::Queue graphicsQueue; // Handles to queue (no value stored)
+
+	VkDebugUtilsMessengerEXT debugMessenger;
 
 	vk::SurfaceKHR surface;
 	vk::Queue presentationQueue;
@@ -83,7 +88,7 @@ private:
 	int currentFrame = 0;
 	vector<vk::Fence> drawFences;
 
-	const int MAX_OBJECTS = 20000;
+	const int MAX_OBJECTS = 20;
 	vector<VulkanMesh> meshes;
 
 	vk::DescriptorSetLayout descriptorSetLayout;
@@ -115,6 +120,7 @@ private:
 
 	vector<VulkanMeshModel> meshModels;
 
+private:
 	// Instance
 	void createInstance();
 	bool checkInstanceExtensionSupport(const vector<const char*>& checkExtensions);
