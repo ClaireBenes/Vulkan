@@ -1,11 +1,14 @@
 #include "VulkanMesh.h"
 
-VulkanMesh::VulkanMesh(vk::PhysicalDevice physicalDeviceP, vk::Device deviceP, vk::Queue transferQueue, vk::CommandPool transferCommandPool, vector<Vertex>* vertices, vector<uint32_t>* indices) :
-	vertexCount(vertices->size()), indexCount(indices->size()), physicalDevice(physicalDeviceP), device(deviceP)
+VulkanMesh::VulkanMesh(vk::PhysicalDevice physicalDeviceP, vk::Device deviceP,
+	vk::Queue transferQueue, vk::CommandPool transferCommandPool,
+	vector<Vertex>* vertices, vector<uint32_t>* indices, int texIdP)
+	:
+	vertexCount{ vertices->size() }, indexCount{ indices->size() },
+	physicalDevice{ physicalDeviceP }, device{ deviceP }, texId{ texIdP }
 {
 	createVertexBuffer(transferQueue, transferCommandPool, vertices);
 	createIndexBuffer(transferQueue, transferCommandPool, indices);
-
 	model.model = glm::mat4(1.0f);
 }
 
@@ -73,7 +76,8 @@ void VulkanMesh::createVertexBuffer(vk::Queue transferQueue, vk::CommandPool tra
 	device.freeMemory(stagingBufferMemory, nullptr);
 }
 
-void VulkanMesh::createIndexBuffer(vk::Queue transferQueue, vk::CommandPool transferCommandPool, vector<uint32_t>* indices)
+void VulkanMesh::createIndexBuffer(vk::Queue transferQueue,
+	vk::CommandPool transferCommandPool, vector<uint32_t>* indices)
 {
 	vk::DeviceSize bufferSize = sizeof(uint32_t) * indices->size();
 
@@ -99,4 +103,27 @@ void VulkanMesh::createIndexBuffer(vk::Queue transferQueue, vk::CommandPool tran
 
 	device.destroyBuffer(stagingBuffer);
 	device.freeMemory(stagingBufferMemory);
+}
+
+uint32_t VulkanMesh::findMemoryTypeIndex(vk::PhysicalDevice physicalDevice,
+	uint32_t allowedTypes, vk::MemoryPropertyFlags properties)
+{
+	// Get properties of physical device
+	vk::PhysicalDeviceMemoryProperties memoryProperties = physicalDevice.getMemoryProperties();
+
+	for( uint32_t i = 0; i < memoryProperties.memoryTypeCount; ++i )
+	{
+		// We iterate through each bit, shifting of 1 (with i) each time.
+		// This way we go through each type to check it is allowed.
+		if( ( allowedTypes & ( 1 << i ) )
+			// Desired property bit flags are part of memory type's property flags.
+			// By checking the equality, we check that all properties are available at the
+			// same time, and not only one property is common.
+			&& ( memoryProperties.memoryTypes[i].propertyFlags & properties ) == properties )
+		{
+			// If this type is an allowed type and has the flags we want,
+			// then i is the current index of the memory type we want to use. Return it.
+			return i;
+		}
+	}
 }

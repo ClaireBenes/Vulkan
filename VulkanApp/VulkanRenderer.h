@@ -2,6 +2,8 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include "stb_image.h"
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -32,7 +34,6 @@ public:
 #endif
 	static const vector<const char*> validationLayers;
 
-public:
 	VulkanRenderer();
 	~VulkanRenderer();
 
@@ -41,20 +42,19 @@ public:
 	void clean();
 
 	void updateModel(int modelId, glm::mat4 modelP);
+	stbi_uc* loadTextureFile(const string& filename, int* width, int* height, vk::DeviceSize* imageSize);
 
 private:
+	GLFWwindow* window;
+	vk::Instance instance;
+	vk::Queue graphicsQueue;			// Handles to queue (no value stored)
+	VkDebugUtilsMessengerEXT debugMessenger;
+
 	struct
 	{
 		vk::PhysicalDevice physicalDevice;
 		vk::Device logicalDevice;
 	} mainDevice;
-
-private:
-	GLFWwindow* window;
-	vk::Instance instance;
-	vk::Queue graphicsQueue;
-
-	VkDebugUtilsMessengerEXT debugMessenger;
 
 	vk::SurfaceKHR surface;
 	vk::Queue presentationQueue;
@@ -85,6 +85,7 @@ private:
 	vk::DescriptorPool descriptorPool;
 	vector<vk::DescriptorSet> descriptorSets;
 
+
 	ViewProjection viewProjection;
 	vk::DeviceSize minUniformBufferOffet;
 	size_t modelUniformAlignement;
@@ -95,18 +96,22 @@ private:
 
 	vk::PushConstantRange pushConstantRange;
 
-	// Depth
 	vk::Image depthBufferImage;
 	vk::DeviceMemory depthBufferImageMemory;
 	vk::ImageView depthBufferImageView;
 
-private:
+	vector<vk::Image> textureImages;
+	vector<vk::ImageView> textureImageViews;
+	vector<vk::DeviceMemory> textureImageMemory;
+	vk::Sampler textureSampler;
+	vk::DescriptorPool samplerDescriptorPool;
+	vk::DescriptorSetLayout samplerDescriptorSetLayout;
+	vector<vk::DescriptorSet> samplerDescriptorSets;
 
 	// Instance
 	void createInstance();
 	bool checkInstanceExtensionSupport(const vector<const char*>& checkExtensions);
 	bool checkValidationLayerSupport();
-
 	vector<const char*> getRequiredExtensions();
 
 	// Debug
@@ -124,10 +129,8 @@ private:
 	// Surface and swapchain
 	vk::SurfaceKHR createSurface();
 	bool checkDeviceExtensionSupport(vk::PhysicalDevice device);
-
 	SwapchainDetails getSwapchainDetails(vk::PhysicalDevice device);
 	void createSwapchain();
-
 	vk::SurfaceFormatKHR chooseBestSurfaceFormat(const vector<vk::SurfaceFormatKHR>& formats);
 	vk::PresentModeKHR chooseBestPresentationMode(const vector<vk::PresentModeKHR>& presentationModes);
 	vk::Extent2D chooseSwapExtent(const vk::SurfaceCapabilitiesKHR& surfaceCapabilities);
@@ -157,11 +160,18 @@ private:
 	// Push constants
 	void createPushConstantRange();
 
-	//Depth
+	// Depth
 	void createDepthBufferImage();
-	vk::Image createImage(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags useFlags, vk::MemoryPropertyFlags propFlags, vk::DeviceMemory* imageMemory);
+	vk::Image createImage(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling,
+		vk::ImageUsageFlags useFlags, vk::MemoryPropertyFlags propFlags, vk::DeviceMemory* imageMemory);
 	vk::Format chooseSupportedFormat(const vector<vk::Format>& formats, vk::ImageTiling tiling, vk::FormatFeatureFlags featureFlags);
 
 	// Draw
 	void createSynchronisation();
+
+	// Textures
+	int createTexture(const string& filename);
+	int createTextureImage(const string& filename);
+	void createTextureSampler();
+	int createTextureDescriptor(vk::ImageView textureImageView);
 };

@@ -1,10 +1,8 @@
 #pragma once
-
 #define GLFW_INCLUDE_VULKAN
-
 #include <GLFW/glfw3.h>
-#include <vector>
 
+#include <vector>
 using std::vector;
 
 #include "VulkanUtilities.h"
@@ -17,7 +15,9 @@ struct Model
 class VulkanMesh
 {
 public:
-	VulkanMesh(vk::PhysicalDevice physicalDeviceP, vk::Device deviceP, vk::Queue transferQueue, vk::CommandPool transferCommandPool, vector<Vertex>* vertices, vector<uint32_t>* indices);
+	VulkanMesh(vk::PhysicalDevice physicalDeviceP, vk::Device deviceP,
+		vk::Queue transferQueue, vk::CommandPool transferCommandPool,
+		vector<Vertex>* vertices, vector<uint32_t>* indices, int texIdP);
 	VulkanMesh() = default;
 	~VulkanMesh() = default;
 
@@ -26,14 +26,26 @@ public:
 	size_t getIndexCount();
 	vk::Buffer getIndexBuffer();
 
-	Model getModel() const{ return model; }
-	void setModel(const glm::mat4& modelP){ model.model = modelP; }
+	Model getModel() const
+	{
+		return model;
+	}
+	void setModel(const glm::mat4& modelP)
+	{
+		model.model = modelP;
+	}
+	int getTexId() const
+	{
+		return texId;
+	}
 
 	void destroyBuffers();
 
 private:
 	size_t vertexCount{ 0 };
 	size_t indexCount{ 0 };
+	Model model;
+	int texId;
 
 	vk::Buffer vertexBuffer;
 	vk::PhysicalDevice physicalDevice;
@@ -42,10 +54,7 @@ private:
 	vk::Buffer indexBuffer;
 	vk::DeviceMemory indexBufferMemory;
 
-	Model model;
-
-private:
 	void createVertexBuffer(vk::Queue transferQueue, vk::CommandPool transferCommandPool, vector<Vertex>* vertices);
 	void createIndexBuffer(vk::Queue transferQueue, vk::CommandPool transferCommandPool, vector<uint32_t>* indices);
+	uint32_t findMemoryTypeIndex(vk::PhysicalDevice physicalDevice, uint32_t allowedTypes, vk::MemoryPropertyFlags properties);
 };
-
