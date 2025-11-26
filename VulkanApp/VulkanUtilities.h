@@ -6,6 +6,7 @@
 
 #include <vector>
 using std::vector;
+
 #include <string>
 using std::string;
 
@@ -33,11 +34,8 @@ struct QueueFamilyIndices
 	}
 };
 
-static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
-	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-	VkDebugUtilsMessageTypeFlagsEXT messageType,
-	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-	void* pUserData)
+static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback( VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType,
+	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
 {
 	std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
 	return VK_FALSE;
@@ -47,8 +45,10 @@ struct SwapchainDetails
 {
 	// What the surface is capable of displaying, e.g. image size/extent
 	vk::SurfaceCapabilitiesKHR surfaceCapabilities;
+
 	// Vector of the image formats, e.g. RGBA
 	vector<vk::SurfaceFormatKHR> formats;
+
 	// Vector of presentation modes
 	vector<vk::PresentModeKHR> presentationModes;
 };
@@ -64,6 +64,7 @@ static vector<char> readShaderFile(const string& filename)
 	// Open shader file
 	// spv files are binary data, put the pointer at the end of the file to get its size
 	std::ifstream file{ filename, std::ios::binary | std::ios::ate };
+
 	if( !file.is_open() )
 	{
 		throw std::runtime_error("Failed to open a file");
@@ -80,8 +81,7 @@ static vector<char> readShaderFile(const string& filename)
 	return fileBuffer;
 }
 
-static uint32_t findMemoryTypeIndex(vk::PhysicalDevice physicalDevice,
-	uint32_t allowedTypes, vk::MemoryPropertyFlags properties)
+static uint32_t findMemoryTypeIndex(vk::PhysicalDevice physicalDevice, uint32_t allowedTypes, vk::MemoryPropertyFlags properties)
 {
 	// Get properties of physical device
 	vk::PhysicalDeviceMemoryProperties memoryProperties = physicalDevice.getMemoryProperties();
@@ -103,10 +103,8 @@ static uint32_t findMemoryTypeIndex(vk::PhysicalDevice physicalDevice,
 	}
 }
 
-static void createBuffer(vk::PhysicalDevice physicalDevice, vk::Device device,
-	vk::DeviceSize bufferSize, vk::BufferUsageFlags bufferUsage,
-	vk::MemoryPropertyFlags bufferProperties, vk::Buffer* buffer,
-	vk::DeviceMemory* bufferMemory)
+static void createBuffer(vk::PhysicalDevice physicalDevice, vk::Device device, vk::DeviceSize bufferSize, vk::BufferUsageFlags bufferUsage,
+	vk::MemoryPropertyFlags bufferProperties, vk::Buffer* buffer, vk::DeviceMemory* bufferMemory)
 {
 	// Buffer info
 	vk::BufferCreateInfo bufferInfo{};
@@ -123,12 +121,9 @@ static void createBuffer(vk::PhysicalDevice physicalDevice, vk::Device device,
 	// Allocate memory to buffer
 	vk::MemoryAllocateInfo memoryAllocInfo{};
 	memoryAllocInfo.allocationSize = memoryRequirements.size;
-	memoryAllocInfo.memoryTypeIndex = findMemoryTypeIndex(
-		physicalDevice,
+	memoryAllocInfo.memoryTypeIndex = findMemoryTypeIndex( physicalDevice,
 		// Index of memory type on physical device that has required bit flags
-		memoryRequirements.memoryTypeBits,
-		bufferProperties
-	);
+		memoryRequirements.memoryTypeBits, bufferProperties );
 
 	// Allocate memory to VkDeviceMemory
 	auto result = device.allocateMemory(&memoryAllocInfo, nullptr, bufferMemory);
@@ -157,6 +152,7 @@ static vk::CommandBuffer beginCommandBuffer(vk::Device device, vk::CommandPool c
 
 	// Information to begin command buffer record
 	vk::CommandBufferBeginInfo beginInfo{};
+
 	// Only using command buffer once, then become unvalid
 	beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
 
@@ -183,8 +179,7 @@ static void endAndSubmitCommandBuffer(vk::Device device, vk::CommandPool command
 	device.freeCommandBuffers(commandPool, 1, &commandBuffer);
 }
 
-static void copyBuffer(vk::Device device, vk::Queue transferQueue, vk::CommandPool transferCommandPool,
-	vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::DeviceSize bufferSize)
+static void copyBuffer(vk::Device device, vk::Queue transferQueue, vk::CommandPool transferCommandPool, vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::DeviceSize bufferSize)
 {
 	// Command buffer to hold transfer commands
 	vk::CommandBuffer transferCommandBuffer = beginCommandBuffer(device, transferCommandPool);
@@ -202,65 +197,74 @@ static void copyBuffer(vk::Device device, vk::Queue transferQueue, vk::CommandPo
 	endAndSubmitCommandBuffer(device, transferCommandPool, transferQueue, transferCommandBuffer);
 }
 
-static void copyImageBuffer(vk::Device device, vk::Queue transferQueue,
-	vk::CommandPool transferCommandPool, vk::Buffer srcBuffer, vk::Image dstImage,
-	uint32_t width, uint32_t height)
+static void copyImageBuffer(vk::Device device, vk::Queue transferQueue, vk::CommandPool transferCommandPool, vk::Buffer srcBuffer, vk::Image dstImage, uint32_t width, uint32_t height)
 {
 	// Create buffer
-	vk::CommandBuffer transferCommandBuffer =
-		beginCommandBuffer(device, transferCommandPool);
+	vk::CommandBuffer transferCommandBuffer = beginCommandBuffer(device, transferCommandPool);
 
 	vk::BufferImageCopy imageRegion{};
+
 	// All data of image is tightly packed
 	// -- Offset into data
 	imageRegion.bufferOffset = 0;
+
 	// -- Row length of data to calculate data spacing
 	imageRegion.bufferRowLength = 0;
+
 	// -- Image height of data to calculate data spacing
 	imageRegion.bufferImageHeight = 0;
 
 	// Which aspect to copy (here: colors)
 	imageRegion.imageSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+
 	// Mipmap level to copy
 	imageRegion.imageSubresource.mipLevel = 0;
+
 	// Starting array layer if array
 	imageRegion.imageSubresource.baseArrayLayer = 0;
+
 	// Number of layers to copy starting at baseArray
 	imageRegion.imageSubresource.layerCount = 1;
+
 	// Offset into image (as opposed to raw data into bufferOffset)
 	imageRegion.imageOffset = vk::Offset3D{ 0, 0, 0 };
+
 	// Size of region to copy (xyz values)
 	imageRegion.imageExtent = vk::Extent3D{ width, height, 1 };
 
 	// Copy buffer to image
-	transferCommandBuffer.copyBufferToImage(srcBuffer,
-		dstImage, vk::ImageLayout::eTransferDstOptimal, 1, &imageRegion);
+	transferCommandBuffer.copyBufferToImage(srcBuffer, dstImage, vk::ImageLayout::eTransferDstOptimal, 1, &imageRegion);
 
-	endAndSubmitCommandBuffer(device, transferCommandPool,
-		transferQueue, transferCommandBuffer);
+	endAndSubmitCommandBuffer(device, transferCommandPool, transferQueue, transferCommandBuffer);
 }
 
-static void transitionImageLayout(vk::Device device, vk::Queue queue, vk::CommandPool commandPool,
-	vk::Image image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout)
+static void transitionImageLayout(vk::Device device, vk::Queue queue, vk::CommandPool commandPool, vk::Image image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout)
 {
 	vk::CommandBuffer commandBuffer = beginCommandBuffer(device, commandPool);
 
 	vk::ImageMemoryBarrier imageMemoryBarrier{};
 	imageMemoryBarrier.oldLayout = oldLayout;
 	imageMemoryBarrier.newLayout = newLayout;
+
 	// Queue family to transition from
 	imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
 	// Queue family to transition to
 	imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
 	// Image being accessed and modified as part fo barrier
 	imageMemoryBarrier.image = image;
 	imageMemoryBarrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+
 	// First mip level to start alterations on
 	imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
+
 	// Number of mip levels to alter starting from baseMipLevel
 	imageMemoryBarrier.subresourceRange.levelCount = 1;
+
 	// First layer to starts alterations on
 	imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
+
 	// Number of layers to alter starting from baseArrayLayer
 	imageMemoryBarrier.subresourceRange.layerCount = 1;
 
@@ -268,11 +272,11 @@ static void transitionImageLayout(vk::Device device, vk::Queue queue, vk::Comman
 	vk::PipelineStageFlags dstStage;
 
 	// If transitioning from new image to image ready to receive data
-	if( oldLayout == vk::ImageLayout::eUndefined &&
-		newLayout == vk::ImageLayout::eTransferDstOptimal )
+	if( oldLayout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eTransferDstOptimal )
 	{
 		// Memory access stage transition must happen after this stage
 		imageMemoryBarrier.srcAccessMask = vk::AccessFlagBits::eNone;
+
 		// Memory access stage transition must happen before this stage
 		imageMemoryBarrier.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
 
@@ -282,11 +286,11 @@ static void transitionImageLayout(vk::Device device, vk::Queue queue, vk::Comman
 		srcStage = vk::PipelineStageFlagBits::eTopOfPipe;
 		dstStage = vk::PipelineStageFlagBits::eTransfer;
 	}
-	else if( oldLayout == vk::ImageLayout::eTransferDstOptimal &&
-		newLayout == vk::ImageLayout::eShaderReadOnlyOptimal )
+	else if( oldLayout == vk::ImageLayout::eTransferDstOptimal && newLayout == vk::ImageLayout::eShaderReadOnlyOptimal )
 	{
 		// Transfer is finished
 		imageMemoryBarrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+
 		// Before the shader reads
 		imageMemoryBarrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
 
