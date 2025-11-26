@@ -1,14 +1,11 @@
 #include "VulkanMesh.h"
 
-VulkanMesh::VulkanMesh(vk::PhysicalDevice physicalDeviceP, vk::Device deviceP,
-	vk::Queue transferQueue, vk::CommandPool transferCommandPool,
-	vector<Vertex>* vertices, vector<uint32_t>* indices, int texIdP)
-	:
-	vertexCount{ vertices->size() }, indexCount{ indices->size() },
-	physicalDevice{ physicalDeviceP }, device{ deviceP }, texId{ texIdP }
+VulkanMesh::VulkanMesh(vk::PhysicalDevice physicalDeviceP, vk::Device deviceP, vk::Queue transferQueue, vk::CommandPool transferCommandPool, vector<Vertex>* vertices, vector<uint32_t>* indices, int texIdP) :
+	vertexCount{ vertices->size() }, indexCount{ indices->size() }, physicalDevice{ physicalDeviceP }, device{ deviceP }, texId{ texIdP }
 {
 	createVertexBuffer(transferQueue, transferCommandPool, vertices);
 	createIndexBuffer(transferQueue, transferCommandPool, indices);
+
 	model.model = glm::mat4(1.0f);
 }
 
@@ -49,8 +46,7 @@ void VulkanMesh::createVertexBuffer(vk::Queue transferQueue, vk::CommandPool tra
 	vk::DeviceMemory stagingBufferMemory;
 
 	createBuffer(physicalDevice, device, bufferSize, vk::BufferUsageFlagBits::eTransferSrc,
-		vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-		&stagingBuffer, &stagingBufferMemory);
+		vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, &stagingBuffer, &stagingBufferMemory);
 
 	// Map memory to staging buffer
 	void* data;
@@ -62,30 +58,26 @@ void VulkanMesh::createVertexBuffer(vk::Queue transferQueue, vk::CommandPool tra
 	// Create buffer with vk::BufferUsageFlagBits::eTransferDst to mark as recipient of transfer data
 	// Buffer memory need to be vk::MemoryPropertyFlagBits::eDeviceLocal meaning memory is on GPU only
 	// and not CPU-accessible
-	createBuffer(physicalDevice, device, bufferSize,
-		vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
-		vk::MemoryPropertyFlagBits::eDeviceLocal,
-		&vertexBuffer, &vertexBufferMemory);
+	createBuffer(physicalDevice, device, bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
+		vk::MemoryPropertyFlagBits::eDeviceLocal, &vertexBuffer, &vertexBufferMemory);
 
 	// Copy staging buffer to vertex buffer on GPU
-	copyBuffer(device, transferQueue, transferCommandPool,
-		stagingBuffer, vertexBuffer, bufferSize);
+	copyBuffer(device, transferQueue, transferCommandPool, stagingBuffer, vertexBuffer, bufferSize);
 
 	// Clean staging buffer
 	device.destroyBuffer(stagingBuffer, nullptr);
 	device.freeMemory(stagingBufferMemory, nullptr);
 }
 
-void VulkanMesh::createIndexBuffer(vk::Queue transferQueue,
-	vk::CommandPool transferCommandPool, vector<uint32_t>* indices)
+void VulkanMesh::createIndexBuffer(vk::Queue transferQueue, vk::CommandPool transferCommandPool, vector<uint32_t>* indices)
 {
 	vk::DeviceSize bufferSize = sizeof(uint32_t) * indices->size();
 
 	vk::Buffer stagingBuffer;
 	vk::DeviceMemory stagingBufferMemory;
+
 	createBuffer(physicalDevice, device, bufferSize, vk::BufferUsageFlagBits::eTransferSrc,
-		vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-		&stagingBuffer, &stagingBufferMemory);
+		vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, &stagingBuffer, &stagingBufferMemory);
 
 	void* data;
 	device.mapMemory(stagingBufferMemory, {}, bufferSize, {}, &data);
@@ -93,10 +85,8 @@ void VulkanMesh::createIndexBuffer(vk::Queue transferQueue,
 	device.unmapMemory(stagingBufferMemory);
 
 	// This time with vk::BufferUsageFlagBits::eIndexBuffer, &indexBuffer and &indexBufferMemory
-	createBuffer(physicalDevice, device, bufferSize,
-		vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
-		vk::MemoryPropertyFlagBits::eDeviceLocal,
-		&indexBuffer, &indexBufferMemory);
+	createBuffer(physicalDevice, device, bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
+		vk::MemoryPropertyFlagBits::eDeviceLocal, &indexBuffer, &indexBufferMemory);
 
 	// Copy to indexBuffer
 	copyBuffer(device, transferQueue, transferCommandPool, stagingBuffer, indexBuffer, bufferSize);
@@ -105,8 +95,7 @@ void VulkanMesh::createIndexBuffer(vk::Queue transferQueue,
 	device.freeMemory(stagingBufferMemory);
 }
 
-uint32_t VulkanMesh::findMemoryTypeIndex(vk::PhysicalDevice physicalDevice,
-	uint32_t allowedTypes, vk::MemoryPropertyFlags properties)
+uint32_t VulkanMesh::findMemoryTypeIndex(vk::PhysicalDevice physicalDevice, uint32_t allowedTypes, vk::MemoryPropertyFlags properties)
 {
 	// Get properties of physical device
 	vk::PhysicalDeviceMemoryProperties memoryProperties = physicalDevice.getMemoryProperties();
