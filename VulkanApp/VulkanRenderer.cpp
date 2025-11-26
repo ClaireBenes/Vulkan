@@ -1,8 +1,7 @@
 #include "VulkanRenderer.h"
 
 const vector<const char*> VulkanRenderer::validationLayers{
-	"VK_LAYER_KHRONOS_validation"
-};
+	"VK_LAYER_KHRONOS_validation" };
 
 VulkanRenderer::VulkanRenderer()
 {
@@ -45,43 +44,14 @@ int VulkanRenderer::init(GLFWwindow* windowP)
 		float aspectRatio = static_cast<float>( swapchainExtent.width ) /
 			static_cast<float>( swapchainExtent.height );
 		viewProjection.projection = glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 100.0f);
-		viewProjection.view = glm::lookAt(glm::vec3(0.0f, 1.0f, 2.0f),
+		viewProjection.view = glm::lookAt(glm::vec3(10.0f, 10.0f, 20.0f),
 			glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
 		// In vulkan, y is downward, and for glm it is upward
 		viewProjection.projection[1][1] *= -1;
 
-		// -- Vertex data
-	// -- Vertex data
-		vector<Vertex> meshVertices1{
-			{ { -0.4f, 0.4f, 0.0f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } },	// 0
-			{ { -0.4f, -0.4f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },	// 1
-			{ { 0.4f, -0.4f, 0.0f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } },	// 2
-			{ { 0.4f, 0.4f, 0.0f }, { 1.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } },	// 3
-		};
-
-		vector<Vertex> meshVertices2{
-			{ { -0.4f, 0.4f, 0.0f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } },	// 0
-			{ { -0.4f, -0.4f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },	// 1
-			{ { 0.4f, -0.4f, 0.0f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } },	// 2
-			{ { 0.4f, 0.4f, 0.0f }, { 1.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } },	// 3
-		};
-
-		// -- Index data
-		vector<uint32_t> meshIndices{
-			0, 1, 2,
-			2, 3, 0
-		};
-
-		VulkanMesh firstMesh = VulkanMesh(mainDevice.physicalDevice,
-			mainDevice.logicalDevice, graphicsQueue, graphicsCommandPool,
-			&meshVertices1, &meshIndices, createTexture("cat.jpg"));
-		meshes.push_back(firstMesh);
-
-		VulkanMesh secondMesh = VulkanMesh(mainDevice.physicalDevice,
-			mainDevice.logicalDevice, graphicsQueue, graphicsCommandPool,
-			&meshVertices2, &meshIndices, createTexture("cat.jpg"));
-		meshes.push_back(secondMesh);
+		// Default texture
+		createTexture("cat.jpg");
 	}
 	catch( const std::runtime_error& e )
 	{
@@ -102,12 +72,13 @@ void VulkanRenderer::draw()
 	// 1. Get next available image to draw and set a semaphore to signal
 	// when we're finished with the image.
 	uint32_t imageToBeDrawnIndex = ( mainDevice.logicalDevice.acquireNextImageKHR(swapchain,
-		std::numeric_limits<uint32_t>::max(), imageAvailable[currentFrame], VK_NULL_HANDLE) ).value;
+		std::numeric_limits<uint32_t>::max(), imageAvailable[currentFrame], VK_NULL_HANDLE) )
+		.value;
 
 	recordCommands(imageToBeDrawnIndex);
 	updateUniformBuffers(imageToBeDrawnIndex);
 
-	// 2. Submit command buffer to queue for execution, make sure it waits 
+	// 2. Submit command buffer to queue for execution, make sure it waits
 	// for the image to be signaled as available before drawing, and
 	// signals when it has finished rendering.
 	vk::SubmitInfo submitInfo{};
@@ -146,6 +117,10 @@ void VulkanRenderer::clean()
 {
 	mainDevice.logicalDevice.waitIdle();
 
+	for( auto& model : meshModels )
+	{
+		model.destroyMeshModel();
+	}
 	mainDevice.logicalDevice.destroyDescriptorPool(samplerDescriptorPool, nullptr);
 	mainDevice.logicalDevice.destroyDescriptorSetLayout(samplerDescriptorSetLayout, nullptr);
 	mainDevice.logicalDevice.destroySampler(textureSampler);
@@ -202,18 +177,18 @@ void VulkanRenderer::createInstance()
 	// Information about the application
 	// This data is for developer convenience
 	vk::ApplicationInfo appInfo{};
-	appInfo.pApplicationName = "Vulkan App";					// Name of the app
-	appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);		// Version of the application
-	appInfo.pEngineName = "No Engine";							// Custom engine name
-	appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);			// Custom engine version
-	appInfo.apiVersion = VK_API_VERSION_1_1;					// Vulkan version (here 1.1)
+	appInfo.pApplicationName = "Vulkan App";							 // Name of the app
+	appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0); // Version of the application
+	appInfo.pEngineName = "No Engine";										 // Custom engine name
+	appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);			 // Custom engine version
+	appInfo.apiVersion = VK_API_VERSION_1_1;							 // Vulkan version (here 1.1)
 
 	// Everything we create will be created with a createInfo
 	// Here, info about the vulkan creation
 	vk::InstanceCreateInfo createInfo{};
 	// createInfo.pNext											// Extended information
 	// createInfo.flags											// Flags with bitfield
-	createInfo.pApplicationInfo = &appInfo;						// Application info from above
+	createInfo.pApplicationInfo = &appInfo; // Application info from above
 
 	// Setup extensions instance will use
 	vector<const char*> instanceExtensions = getRequiredExtensions();
@@ -267,7 +242,8 @@ bool VulkanRenderer::checkInstanceExtensionSupport(const vector<const char*>& ch
 				break;
 			}
 		}
-		if( !hasExtension ) return false;
+		if( !hasExtension )
+			return false;
 	}
 
 	return true;
@@ -275,7 +251,8 @@ bool VulkanRenderer::checkInstanceExtensionSupport(const vector<const char*>& ch
 
 void VulkanRenderer::setupDebugMessenger()
 {
-	if( !enableValidationLayers ) return;
+	if( !enableValidationLayers )
+		return;
 
 	VkDebugUtilsMessengerCreateInfoEXT createInfo;
 	populateDebugMessengerCreateInfo(createInfo);
@@ -313,7 +290,8 @@ bool VulkanRenderer::checkValidationLayerSupport()
 			}
 		}
 
-		if( !layerFound ) return false;
+		if( !layerFound )
+			return false;
 	}
 
 	return true;
@@ -381,8 +359,7 @@ bool VulkanRenderer::checkDeviceSuitable(vk::PhysicalDevice device)
 		swapchainValid = !swapchainDetails.presentationModes.empty() && !swapchainDetails.formats.empty();
 	}
 
-	return indices.isValid() && extensionSupported && swapchainValid
-		&& deviceFeatures.samplerAnisotropy;
+	return indices.isValid() && extensionSupported && swapchainValid && deviceFeatures.samplerAnisotropy;
 }
 
 QueueFamilyIndices VulkanRenderer::getQueueFamilies(vk::PhysicalDevice device)
@@ -408,7 +385,8 @@ QueueFamilyIndices VulkanRenderer::getQueueFamilies(vk::PhysicalDevice device)
 			indices.presentationFamily = i;
 		}
 
-		if( indices.isValid() ) break;
+		if( indices.isValid() )
+			break;
 		++i;
 	}
 	return indices;
@@ -512,7 +490,8 @@ bool VulkanRenderer::checkDeviceExtensionSupport(vk::PhysicalDevice device)
 			}
 		}
 
-		if( !hasExtension ) return false;
+		if( !hasExtension )
+			return false;
 	}
 
 	return true;
@@ -595,7 +574,7 @@ void VulkanRenderer::createSwapchain()
 
 	// Get the swapchain images
 	vector<vk::Image> images = mainDevice.logicalDevice.getSwapchainImagesKHR(swapchain);
-	for( VkImage image : images )	// We are using handles, not values
+	for( VkImage image : images ) // We are using handles, not values
 	{
 		SwapchainImage swapchainImage{};
 		swapchainImage.image = image;
@@ -671,18 +650,18 @@ vk::ImageView VulkanRenderer::createImageView(vk::Image image, vk::Format format
 {
 	vk::ImageViewCreateInfo viewCreateInfo{};
 	viewCreateInfo.image = image;
-	viewCreateInfo.viewType = vk::ImageViewType::e2D;					// Other formats can be used for cubemaps etc.
-	viewCreateInfo.format = format;										// Can be used for depth for instance
-	viewCreateInfo.components.r = vk::ComponentSwizzle::eIdentity;		// Swizzle used to remap color values. Here we keep the same.
+	viewCreateInfo.viewType = vk::ImageViewType::e2D;							 // Other formats can be used for cubemaps etc.
+	viewCreateInfo.format = format;																 // Can be used for depth for instance
+	viewCreateInfo.components.r = vk::ComponentSwizzle::eIdentity; // Swizzle used to remap color values. Here we keep the same.
 	viewCreateInfo.components.g = vk::ComponentSwizzle::eIdentity;
 	viewCreateInfo.components.b = vk::ComponentSwizzle::eIdentity;
 	viewCreateInfo.components.a = vk::ComponentSwizzle::eIdentity;
 
 	// Subresources allow the view to view only a part of an image
-	viewCreateInfo.subresourceRange.aspectMask = aspectFlags;			// Here we want to see the image under the aspect of colors
+	viewCreateInfo.subresourceRange.aspectMask = aspectFlags; // Here we want to see the image under the aspect of colors
 	viewCreateInfo.subresourceRange.baseMipLevel = 0;					// Start mipmap level to view from
 	viewCreateInfo.subresourceRange.levelCount = 1;						// Number of mipmap level to view
-	viewCreateInfo.subresourceRange.baseArrayLayer = 0;					// Start array level to view from
+	viewCreateInfo.subresourceRange.baseArrayLayer = 0;				// Start array level to view from
 	viewCreateInfo.subresourceRange.layerCount = 1;						// Number of array levels to view
 
 	// Create image view
@@ -698,13 +677,12 @@ void VulkanRenderer::createGraphicsPipeline()
 	vk::ShaderModule vertexShaderModule = createShaderModule(vertexShaderCode);
 	vk::ShaderModule fragmentShaderModule = createShaderModule(fragmentShaderCode);
 
-
 	// -- SHADER STAGE CREATION INFO --
 	// Vertex stage creation info
 	vk::PipelineShaderStageCreateInfo vertexShaderCreateInfo{};
-	vertexShaderCreateInfo.stage = vk::ShaderStageFlagBits::eVertex;	// Used to know which shader
+	vertexShaderCreateInfo.stage = vk::ShaderStageFlagBits::eVertex; // Used to know which shader
 	vertexShaderCreateInfo.module = vertexShaderModule;
-	vertexShaderCreateInfo.pName = "main";		// Pointer to the start function in the shader
+	vertexShaderCreateInfo.pName = "main"; // Pointer to the start function in the shader
 	// Fragment stage creation info
 	vk::PipelineShaderStageCreateInfo fragmentShaderCreateInfo{};
 	fragmentShaderCreateInfo.stage = vk::ShaderStageFlagBits::eFragment;
@@ -712,7 +690,6 @@ void VulkanRenderer::createGraphicsPipeline()
 	fragmentShaderCreateInfo.pName = "main";
 	// Graphics pipeline requires an array of shader create info
 	vk::PipelineShaderStageCreateInfo shaderStages[]{ vertexShaderCreateInfo, fragmentShaderCreateInfo };
-
 
 	// Create pipeline
 
@@ -761,7 +738,6 @@ void VulkanRenderer::createGraphicsPipeline()
 	vertexInputCreateInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>( attributeDescriptions.size() );
 	vertexInputCreateInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
-
 	// -- INPUT ASSEMBLY --
 	vk::PipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo{};
 	// How to assemble vertices
@@ -769,16 +745,15 @@ void VulkanRenderer::createGraphicsPipeline()
 	// When you want to restart a primitive, e.g. with a strip
 	inputAssemblyCreateInfo.primitiveRestartEnable = VK_FALSE;
 
-
 	// -- VIEWPORT AND SCISSOR --
 	// Create a viewport info struct
 	vk::Viewport viewport{};
-	viewport.x = 0.0f;									// X start coordinate
-	viewport.y = 0.0f;									// Y start coordinate
-	viewport.width = (float) swapchainExtent.width;		// Width of viewport
-	viewport.height = (float) swapchainExtent.height;	// Height of viewport
-	viewport.minDepth = 0.0f;							// Min framebuffer depth
-	viewport.maxDepth = 1.0f;							// Max framebuffer depth
+	viewport.x = 0.0f;															 // X start coordinate
+	viewport.y = 0.0f;															 // Y start coordinate
+	viewport.width = (float) swapchainExtent.width;	 // Width of viewport
+	viewport.height = (float) swapchainExtent.height; // Height of viewport
+	viewport.minDepth = 0.0f;												 // Min framebuffer depth
+	viewport.maxDepth = 1.0f;												 // Max framebuffer depth
 
 	// Create a scissor info struct, everything outside is cut
 	vk::Rect2D scissor{};
@@ -806,15 +781,14 @@ void VulkanRenderer::createGraphicsPipeline()
 	dynamicStateCreateInfo.pDynamicStates = dynamicStateEnables.data();
 	*/
 
-
 	// -- RASTERIZER --
 	vk::PipelineRasterizationStateCreateInfo rasterizerCreateInfo{};
 	// Treat elements beyond the far plane like being on the far place, needs a GPU device feature
 	rasterizerCreateInfo.depthClampEnable = VK_FALSE;
 	// Whether to discard data and skip rasterizer. When you want a pipeline without framebuffer.
 	rasterizerCreateInfo.rasterizerDiscardEnable = VK_FALSE;
-	// How to handle filling points between vertices. Here, considers things inside the polygon as a fragment. 
-	// VK_POLYGON_MODE_LINE will consider element inside polygones being empty (no fragment). May require 
+	// How to handle filling points between vertices. Here, considers things inside the polygon as a fragment.
+	// VK_POLYGON_MODE_LINE will consider element inside polygones being empty (no fragment). May require
 	// a device feature.
 	rasterizerCreateInfo.polygonMode = vk::PolygonMode::eFill;
 	// How thick should line be when drawn
@@ -823,12 +797,11 @@ void VulkanRenderer::createGraphicsPipeline()
 	rasterizerCreateInfo.cullMode = vk::CullModeFlagBits::eBack;
 	// Widing to know the front face of a polygon
 	rasterizerCreateInfo.frontFace = vk::FrontFace::eCounterClockwise;
-	// Whether to add a depth offset to fragments. Good for stopping "shadow acne" in shadow mapping. 
+	// Whether to add a depth offset to fragments. Good for stopping "shadow acne" in shadow mapping.
 	// Is set, need to set 3 other values.
 	rasterizerCreateInfo.depthBiasEnable = VK_FALSE;
 
-
-	// -- MULTISAMPLING --	
+	// -- MULTISAMPLING --
 	// Not for textures, only for edges
 	vk::PipelineMultisampleStateCreateInfo multisamplingCreateInfo{};
 	// Enable multisample shading or not
@@ -836,7 +809,7 @@ void VulkanRenderer::createGraphicsPipeline()
 	// Number of samples to use per fragment
 	multisamplingCreateInfo.rasterizationSamples = vk::SampleCountFlagBits::e1;
 
-	// -- BLENDING --		
+	// -- BLENDING --
 	// How to blend a new color being written to the fragment, with the old value
 	vk::PipelineColorBlendStateCreateInfo colorBlendingCreateInfo{};
 	// Alternative to usual blending calculation
@@ -860,11 +833,9 @@ void VulkanRenderer::createGraphicsPipeline()
 	colorBlendingCreateInfo.attachmentCount = 1;
 	colorBlendingCreateInfo.pAttachments = &colorBlendAttachment;
 
-
 	// -- PIPELINE LAYOUT --
 	array<vk::DescriptorSetLayout, 2> descriptorSetLayouts{
-		descriptorSetLayout, samplerDescriptorSetLayout
-	};
+		descriptorSetLayout, samplerDescriptorSetLayout };
 
 	vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo{};
 	pipelineLayoutCreateInfo.setLayoutCount = static_cast<uint32_t>( descriptorSetLayouts.size() );
@@ -874,8 +845,6 @@ void VulkanRenderer::createGraphicsPipeline()
 
 	// Create pipeline layout
 	pipelineLayout = mainDevice.logicalDevice.createPipelineLayout(pipelineLayoutCreateInfo);
-
-
 
 	// -- DEPTH STENCIL TESTING --
 	vk::PipelineDepthStencilStateCreateInfo depthStencilCreateInfo{};
@@ -888,7 +857,6 @@ void VulkanRenderer::createGraphicsPipeline()
 	depthStencilCreateInfo.depthBoundsTestEnable = false;
 	// Enable stencil test
 	depthStencilCreateInfo.stencilTestEnable = false;
-
 
 	// -- PASSES --
 	// Passes are composed of a sequence of subpasses that can pass data from one to another
@@ -944,7 +912,7 @@ void VulkanRenderer::createRenderPass()
 {
 	vk::RenderPassCreateInfo renderPassCreateInfo{};
 
-	// Attachement description : describe color buffer output, depth buffer output... 
+	// Attachement description : describe color buffer output, depth buffer output...
 	// e.g. (location = 0) in the fragment shader is the first attachment
 	vk::AttachmentDescription colorAttachment{};
 	// Format to use for attachment
@@ -968,15 +936,13 @@ void VulkanRenderer::createRenderPass()
 	// Image data layout after render pass
 	colorAttachment.finalLayout = vk::ImageLayout::ePresentSrcKHR;
 
-
 	// Depth attachment of renderpass
 	vk::AttachmentDescription depthAttachment{};
 
 	std::vector<vk::Format> formats{
 		vk::Format::eD32SfloatS8Uint,
 		vk::Format::eD32Sfloat,
-		vk::Format::eD24UnormS8Uint
-	};
+		vk::Format::eD24UnormS8Uint };
 	depthAttachment.format = chooseSupportedFormat(formats, vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
 	depthAttachment.samples = vk::SampleCountFlagBits::e1;
 	// Clear when we start the render pass.
@@ -989,8 +955,7 @@ void VulkanRenderer::createRenderPass()
 	depthAttachment.finalLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
 
 	array<vk::AttachmentDescription, 2> renderPassAttachments{
-		colorAttachment, depthAttachment
-	};
+		colorAttachment, depthAttachment };
 	renderPassCreateInfo.attachmentCount = static_cast<uint32_t>( renderPassAttachments.size() );
 	renderPassCreateInfo.pAttachments = renderPassAttachments.data();
 
@@ -1009,7 +974,7 @@ void VulkanRenderer::createRenderPass()
 	// -- SUBPASSES --
 	// Subpass description, will reference attachements
 	vk::SubpassDescription subpass{};
-	// Pipeline type the subpass will be bound to. 
+	// Pipeline type the subpass will be bound to.
 	// Could be compute pipeline, or nvidia raytracing...
 	subpass.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
 	subpass.colorAttachmentCount = 1;
@@ -1020,7 +985,7 @@ void VulkanRenderer::createRenderPass()
 	renderPassCreateInfo.pSubpasses = &subpass;
 
 	// Subpass dependencies: transitions between subpasses + from the last subpass to what happens after
-	// Need to determine when layout transitions occur using subpass dependencies. 
+	// Need to determine when layout transitions occur using subpass dependencies.
 	// Will define implicitly layout transitions.
 	array<vk::SubpassDependency, 2> subpassDependencies;
 	// -- From layout undefined to color attachment optimal
@@ -1030,11 +995,11 @@ void VulkanRenderer::createRenderPass()
 	subpassDependencies[0].srcStageMask = vk::PipelineStageFlagBits::eBottomOfPipe;
 	subpassDependencies[0].srcAccessMask = vk::AccessFlagBits::eMemoryRead;
 	// ---- But must happens before
-	subpassDependencies[0].dstSubpass = 0; // Conversion should happen before the first subpass starts															
+	subpassDependencies[0].dstSubpass = 0; // Conversion should happen before the first subpass starts
 	subpassDependencies[0].dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
 	// ...and before the color attachment attempts to read or write
 	subpassDependencies[0].dstAccessMask = vk::AccessFlagBits::eMemoryRead | vk::AccessFlagBits::eMemoryWrite;
-	subpassDependencies[0].dependencyFlags = vk::DependencyFlags();	// No dependency flag													
+	subpassDependencies[0].dependencyFlags = vk::DependencyFlags(); // No dependency flag
 
 	// -- From layout color attachment optimal to image layout present
 	// ---- Transition must happens after
@@ -1096,11 +1061,11 @@ void VulkanRenderer::createGraphicsCommandBuffers()
 	// Create one command buffer for each framebuffer
 	commandBuffers.resize(swapchainFramebuffers.size());
 
-	vk::CommandBufferAllocateInfo commandBufferAllocInfo{};		// We are using a pool
+	vk::CommandBufferAllocateInfo commandBufferAllocInfo{}; // We are using a pool
 	commandBufferAllocInfo.commandPool = graphicsCommandPool;
 	commandBufferAllocInfo.commandBufferCount = static_cast<uint32_t>( commandBuffers.size() );
-	// Primary means the command buffer will submit directly to a queue. 
-	// Secondary cannot be called by a queue, but by an other primary command 
+	// Primary means the command buffer will submit directly to a queue.
+	// Secondary cannot be called by a queue, but by an other primary command
 	// buffer, via vkCmdExecuteCommands.
 	commandBufferAllocInfo.level = vk::CommandBufferLevel::ePrimary;
 
@@ -1112,7 +1077,7 @@ void VulkanRenderer::recordCommands(uint32_t currentImage)
 	// How to begin each command buffer
 	vk::CommandBufferBeginInfo commandBufferBeginInfo{};
 	// Buffer can be resubmited when it has already been submited
-	//commandBufferBeginInfo.flags = vk::CommandBufferUsageFlagBits::eSimultaneousUse;		
+	// commandBufferBeginInfo.flags = vk::CommandBufferUsageFlagBits::eSimultaneousUse;
 
 	// Information about how to being a render pass (only for graphical apps)
 	vk::RenderPassBeginInfo renderPassBeginInfo{};
@@ -1145,32 +1110,38 @@ void VulkanRenderer::recordCommands(uint32_t currentImage)
 	commandBuffers[currentImage].bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline);
 
 	// Draw all meshes
-	for( size_t j = 0; j < meshes.size(); ++j )
+	for( size_t j = 0; j < meshModels.size(); ++j )
 	{
-		// Bind vertex buffer
-		vk::Buffer vertexBuffers[] = { meshes[j].getVertexBuffer() };
-		vk::DeviceSize offsets[] = { 0 };
-		commandBuffers[currentImage].bindVertexBuffers(0, 1, vertexBuffers, offsets);
-
-		// Bind index buffer
-		commandBuffers[currentImage].bindIndexBuffer(
-			meshes[j].getIndexBuffer(), 0, vk::IndexType::eUint32);
-
 		// Push constants to given shader stage
-		Model model = meshes[j].getModel();
+		VulkanMeshModel model = meshModels[j];
+		glm::mat4 modelMatrix = model.getModel();
 		commandBuffers[currentImage].pushConstants(pipelineLayout,
-			vk::ShaderStageFlagBits::eVertex, 0, sizeof(Model), &model);
+			vk::ShaderStageFlagBits::eVertex, 0, sizeof(Model), &modelMatrix);
 
-		// Bind descriptor sets
-		array<vk::DescriptorSet, 2> descriptorSetsGroup{
-			descriptorSets[currentImage], samplerDescriptorSets[meshes[j].getTexId()]
-		};
-		commandBuffers[currentImage].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0,
-			static_cast<uint32_t>( descriptorSetsGroup.size() ), descriptorSetsGroup.data(), 0, nullptr);
+		// We have one model matrix for each object, then several children meshes
 
-		// Execute pipeline
-		commandBuffers[currentImage].drawIndexed(
-			static_cast<uint32_t>( meshes[j].getIndexCount() ), 1, 0, 0, 0);
+		for( size_t k = 0; k < model.getMeshCount(); ++k )
+		{
+			// Bind vertex buffer
+			vk::Buffer vertexBuffers[] = { model.getMesh(k)->getVertexBuffer() };
+			vk::DeviceSize offsets[] = { 0 };
+			commandBuffers[currentImage].bindVertexBuffers(0, 1, vertexBuffers, offsets);
+
+			// Bind index buffer
+			commandBuffers[currentImage].bindIndexBuffer(
+				model.getMesh(k)->getIndexBuffer(), 0, vk::IndexType::eUint32);
+
+			// Bind descriptor sets
+			array<vk::DescriptorSet, 2> descriptorSetsGroup{
+				descriptorSets[currentImage],
+				samplerDescriptorSets[model.getMesh(k)->getTexId()] };
+			commandBuffers[currentImage].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout,
+				0, static_cast<uint32_t>( descriptorSetsGroup.size() ), descriptorSetsGroup.data(), 0, nullptr);
+
+			// Execute pipeline
+			commandBuffers[currentImage].drawIndexed(
+				static_cast<uint32_t>( model.getMesh(k)->getIndexCount() ), 1, 0, 0, 0);
+		}
 	}
 
 	// End render pass
@@ -1219,8 +1190,7 @@ void VulkanRenderer::createDescriptorSetLayout()
 	vpLayoutBinding.pImmutableSamplers = nullptr;
 
 	vector<vk::DescriptorSetLayoutBinding> layoutBindings{
-		vpLayoutBinding
-	};
+		vpLayoutBinding };
 
 	// Descriptor set layout with given binding
 	vk::DescriptorSetLayoutCreateInfo layoutCreateInfo{};
@@ -1332,18 +1302,18 @@ void VulkanRenderer::createDescriptorSets()
 		// -- VIEW PROJECTION DESCRIPTOR --
 		// Description of the buffer and data offset
 		vk::DescriptorBufferInfo vpBufferInfo{};
-		vpBufferInfo.buffer = vpUniformBuffer[i];		// Buffer to get data from
-		vpBufferInfo.offset = 0;						// We bind the whole data
-		vpBufferInfo.range = sizeof(ViewProjection);				// Size of data
+		vpBufferInfo.buffer = vpUniformBuffer[i];		 // Buffer to get data from
+		vpBufferInfo.offset = 0;										 // We bind the whole data
+		vpBufferInfo.range = sizeof(ViewProjection); // Size of data
 
 		// Data about connection between binding and buffer
 		vk::WriteDescriptorSet vpSetWrite{};
-		vpSetWrite.dstSet = descriptorSets[i];		// Descriptor sets to update
-		vpSetWrite.dstBinding = 0;					// Binding to update (matches with shader binding)
-		vpSetWrite.dstArrayElement = 0;			// Index in array to update
+		vpSetWrite.dstSet = descriptorSets[i]; // Descriptor sets to update
+		vpSetWrite.dstBinding = 0;						 // Binding to update (matches with shader binding)
+		vpSetWrite.dstArrayElement = 0;				 // Index in array to update
 		vpSetWrite.descriptorType = vk::DescriptorType::eUniformBuffer;
-		vpSetWrite.descriptorCount = 1;			// Amount of descriptor sets to update
-		vpSetWrite.pBufferInfo = &vpBufferInfo;	// Information about buffer data to bind
+		vpSetWrite.descriptorCount = 1;					// Amount of descriptor sets to update
+		vpSetWrite.pBufferInfo = &vpBufferInfo; // Information about buffer data to bind
 
 		vector<vk::WriteDescriptorSet> setWrites{ vpSetWrite };
 
@@ -1363,9 +1333,10 @@ void VulkanRenderer::updateUniformBuffers(uint32_t imageIndex)
 
 void VulkanRenderer::updateModel(int modelId, glm::mat4 modelP)
 {
-	if( modelId >= meshes.size() ) return;
+	if( modelId >= meshModels.size() )
+		return;
 
-	meshes[modelId].setModel(modelP);
+	meshModels[modelId].setModel(modelP);
 }
 
 void VulkanRenderer::allocateDynamicBufferTransferSpace()
@@ -1481,8 +1452,7 @@ void VulkanRenderer::createDepthBufferImage()
 		// if not found, without stencil
 		vk::Format::eD32Sfloat,
 		// if not 24bits depth and stencil buffer
-		vk::Format::eD24UnormS8Uint
-	};
+		vk::Format::eD24UnormS8Uint };
 
 	vk::Format depthFormat = chooseSupportedFormat(formats, vk::ImageTiling::eOptimal,
 		// Format supports depth and stencil attachment
@@ -1495,7 +1465,6 @@ void VulkanRenderer::createDepthBufferImage()
 
 	depthBufferImageView = createImageView(depthBufferImage, depthFormat, vk::ImageAspectFlagBits::eDepth);
 }
-
 
 stbi_uc* VulkanRenderer::loadTextureFile(const string& filename, int* width, int* height, vk::DeviceSize* imageSize)
 {
@@ -1511,7 +1480,7 @@ stbi_uc* VulkanRenderer::loadTextureFile(const string& filename, int* width, int
 		throw std::runtime_error("Failed to load texture file: " + path);
 	}
 
-	*imageSize = *width * *height * 4;	// RGBA has 4 channels
+	*imageSize = *width * *height * 4; // RGBA has 4 channels
 	return image;
 }
 
@@ -1656,4 +1625,46 @@ int VulkanRenderer::createTextureDescriptor(vk::ImageView textureImageView)
 	samplerDescriptorSets.push_back(descriptorSet);
 
 	return samplerDescriptorSets.size() - 1;
+}
+
+int VulkanRenderer::createMeshModel(string filename)
+{
+	// Import model scene
+	Assimp::Importer importer;
+	// We want the model to be in triangles, to flip vertically texels uvs, and optimize the use of vertices
+	const aiScene* scene = importer.ReadFile(filename, aiProcess_Triangulate |
+		aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices);
+	if( !scene )
+	{
+		throw std::runtime_error("Failed to load mesh model: " + filename);
+	}
+
+	// Load materials with one to one relationship with texture ids
+	vector<string> textureNames = VulkanMeshModel::loadMaterials(scene);
+
+	// Conversion to material list ID to descriptor array ids (we don't keep empty files)
+	vector<int> matToTex(textureNames.size());
+	// Loop over texture names and create textures for them
+	for( size_t i = 0; i < textureNames.size(); ++i )
+	{
+		if( textureNames[i].empty() )
+		{
+			// Texture 0 will be reserved for a default texture
+			matToTex[i] = 0;
+		}
+		else
+		{
+			// Return the texture's id
+			matToTex[i] = createTexture(textureNames[i]);
+		}
+	}
+
+	// Load in all our meshes
+	vector<VulkanMesh> modelMeshes =
+		VulkanMeshModel::loadNode(mainDevice.physicalDevice, mainDevice.logicalDevice,
+			graphicsQueue, graphicsCommandPool, scene->mRootNode, scene, matToTex);
+
+	auto meshModel = VulkanMeshModel(modelMeshes);
+	meshModels.push_back(meshModel);
+	return meshModels.size() - 1;
 }

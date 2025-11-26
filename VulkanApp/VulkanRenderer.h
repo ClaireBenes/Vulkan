@@ -7,6 +7,10 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+
 #include <stdexcept>
 #include <vector>
 using std::vector;
@@ -17,6 +21,7 @@ using std::array;
 
 #include "VulkanUtilities.h"
 #include "VulkanMesh.h"
+#include "VulkanMeshModel.h"
 
 struct ViewProjection
 {
@@ -42,12 +47,13 @@ public:
 	void clean();
 
 	void updateModel(int modelId, glm::mat4 modelP);
+	int createMeshModel(string filename);
 	stbi_uc* loadTextureFile(const string& filename, int* width, int* height, vk::DeviceSize* imageSize);
 
 private:
 	GLFWwindow* window;
 	vk::Instance instance;
-	vk::Queue graphicsQueue;			// Handles to queue (no value stored)
+	vk::Queue graphicsQueue; // Handles to queue (no value stored)
 	VkDebugUtilsMessengerEXT debugMessenger;
 
 	struct
@@ -73,10 +79,11 @@ private:
 
 	vector<vk::Semaphore> imageAvailable;
 	vector<vk::Semaphore> renderFinished;
-	const int MAX_FRAME_DRAWS = 2;			// Should be less than the number of swapchain images, here 3 (could cause bugs)
+	const int MAX_FRAME_DRAWS = 2; // Should be less than the number of swapchain images, here 3 (could cause bugs)
 	int currentFrame = 0;
 	vector<vk::Fence> drawFences;
 
+	const int MAX_OBJECTS = 20000;
 	vector<VulkanMesh> meshes;
 
 	vk::DescriptorSetLayout descriptorSetLayout;
@@ -85,12 +92,10 @@ private:
 	vk::DescriptorPool descriptorPool;
 	vector<vk::DescriptorSet> descriptorSets;
 
-
 	ViewProjection viewProjection;
 	vk::DeviceSize minUniformBufferOffet;
 	size_t modelUniformAlignement;
 	Model* modelTransferSpace;
-	const int MAX_OBJECTS = 2;
 	vector<vk::Buffer> modelUniformBufferDynamic;
 	vector<vk::DeviceMemory> modelUniformBufferMemoryDynamic;
 
@@ -107,6 +112,8 @@ private:
 	vk::DescriptorPool samplerDescriptorPool;
 	vk::DescriptorSetLayout samplerDescriptorSetLayout;
 	vector<vk::DescriptorSet> samplerDescriptorSets;
+
+	vector<VulkanMeshModel> meshModels;
 
 	// Instance
 	void createInstance();
