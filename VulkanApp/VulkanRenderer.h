@@ -1,9 +1,8 @@
 #pragma once
 #define GLFW_INCLUDE_VULKAN
+
 #include <GLFW/glfw3.h>
-
 #include "stb_image.h"
-
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -15,10 +14,8 @@
 
 #include <vector>
 using std::vector;
-
 #include <set>
 using std::set;
-
 #include <array>
 using std::array;
 
